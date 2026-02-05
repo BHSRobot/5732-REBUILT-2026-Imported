@@ -86,7 +86,6 @@ import swervelib.simulation.ironmaple.simulation.drivesims.SwerveDriveSimulation
 import swervelib.telemetry.SwerveDriveTelemetry;
 import swervelib.telemetry.SwerveDriveTelemetry.TelemetryVerbosity;
 
-
 import com.ctre.phoenix.motorcontrol.NeutralMode;
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
@@ -96,7 +95,6 @@ import com.ctre.phoenix6.configs.TalonFXConfigurator;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-
 
 import swervelib.SwerveModule;
 
@@ -112,11 +110,16 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   private final SwerveDrive m_swerveDrive;
 
+  private boolean m_sysIdActive = false;
+
+  public void setSysIdActive(boolean active) {
+    m_sysIdActive = active;
+  }
+
   // logging robot velocity
   private StructPublisher<ChassisSpeeds> robotRelSpeed;
   private double linearVelocity;
-  //private final Field2d m_field;
-  
+  // private final Field2d m_field;
 
   /**
    * Initialize {@link SwerveDrive} with the directory provided.
@@ -124,11 +127,11 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param directory Directory of swerve drive config files.
    */
   public SwerveSubsystem(File directory) {
-    //m_field = new Field2d();
-    //SmartDashboard.putData("Field", m_field);
+    // m_field = new Field2d();
+    // SmartDashboard.putData("Field", m_field);
     robotRelSpeed = NetworkTableInstance.getDefault()
         .getStructTopic("Robot Speeds (XYZ)", ChassisSpeeds.struct).publish();
-    
+
     boolean blueAlliance = false;
     Pose2d startingPose = blueAlliance ? new Pose2d(new Translation2d(Meter.of(1),
         Meter.of(4)),
@@ -150,9 +153,10 @@ public class SwerveSubsystem extends SubsystemBase {
       throw new RuntimeException(e);
     }
     m_swerveDrive.setHeadingCorrection(false); // Heading correction should only be used while controlling the robot via
-                                             // angle.
-    m_swerveDrive.setCosineCompensator(false);// !SwerveDriveTelemetry.isSimulation); // Disables cosine compensation for
-                                            // simulations since it causes discrepancies not seen in real life.
+    // angle.
+    m_swerveDrive.setCosineCompensator(false);// !SwerveDriveTelemetry.isSimulation); // Disables cosine compensation
+                                              // for
+    // simulations since it causes discrepancies not seen in real life.
     m_swerveDrive.setAngularVelocityCompensation(true,
         true,
         0.1); // Correct for skew that gets worse as angular velocity increases. Start with a
@@ -176,8 +180,8 @@ public class SwerveSubsystem extends SubsystemBase {
    * @param controllerCfg Swerve Controller.
    */
   public SwerveSubsystem(SwerveDriveConfiguration driveCfg, SwerveControllerConfiguration controllerCfg) {
-    //m_field = new Field2d();
-    //SmartDashboard.putData("Field", m_field);
+    // m_field = new Field2d();
+    // SmartDashboard.putData("Field", m_field);
     m_swerveDrive = new SwerveDrive(driveCfg,
         controllerCfg,
         SwerveConstants.kMaxSpeedMetersPerSecond,
@@ -190,59 +194,59 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
-    // --- Essential Telemetry and Odometry ---
-    
-    m_swerveDrive.updateOdometry();
-    updateVisionOdometry();
-    //m_field.setRobotPose(getPose());
+    if (!m_sysIdActive) {
 
-    
-    Logger.recordOutput("Drive/Pose", getPose());
-    
-    Logger.recordOutput("Drive/Velocity/RobotRelative", getRobotVelocity());
-    linearVelocity = Math.sqrt(Math.pow(getRobotVelocity().vxMetersPerSecond,2) + Math.pow(getRobotVelocity().vyMetersPerSecond,2));
-    SmartDashboard.putNumber("Drive/linearVelocity/RobotRelative", linearVelocity);
-    
-    
+      // --- Essential Telemetry and Odometry ---
 
-    robotRelSpeed.set(getRobotVelocity());
-    
-    // --- Swerve Internal State ---
-    
-    Logger.recordOutput("Drive/ModuleStates/Actual", m_swerveDrive.getStates());
-    
-    // --- FIX THIS SOON SO YOU CAN COMPARE SETPOINTS TO MEASURED ANGLES AND
-    // VELOCITY - bushi ----
+      m_swerveDrive.updateOdometry();
+      updateVisionOdometry();
+      // m_field.setRobotPose(getPose());
 
-    // Logger.recordOutput("Drive/ModuleStates/Desired", swerveDrive.getStates());
+      Logger.recordOutput("Drive/Pose", getPose());
 
-    Logger.recordOutput("Drive/ModulePositions", m_swerveDrive.getModulePositions());
+      Logger.recordOutput("Drive/Velocity/RobotRelative", getRobotVelocity());
+      linearVelocity = Math
+          .sqrt(Math.pow(getRobotVelocity().vxMetersPerSecond, 2) + Math.pow(getRobotVelocity().vyMetersPerSecond, 2));
+      SmartDashboard.putNumber("Drive/linearVelocity/RobotRelative", linearVelocity);
 
-    // --- Sensors ---
-    Logger.recordOutput("Drive/Gyro/Yaw", m_swerveDrive.getYaw());
-    Logger.recordOutput("Drive/Gyro/Pitch", m_swerveDrive.getPitch()); // Useful for "is robot tipped?"
+      robotRelSpeed.set(getRobotVelocity());
 
-    // --- Vision ---
-    // Adding a check to see if the robot actually sees a target in the front limelight
-    boolean turretHasTarget = LimelightHelpers.getTV(Vision.kturretlime);
-    boolean chassisHasTarget = LimelightHelpers.getTV(Vision.kchassislime);
-    Logger.recordOutput("Vision/FrontHasTarget", turretHasTarget);
-    if (turretHasTarget) {
-      Logger.recordOutput("Vision/FrontLimelightTY", LimelightHelpers.getTY(Vision.kturretlime));
-      SmartDashboard.putNumber("Vision/FrontLimelightTY", LimelightHelpers.getTY(Vision.kturretlime));
-      Logger.recordOutput("Vision/FrontLimelightTX", LimelightHelpers.getTX(Vision.kturretlime));
-      SmartDashboard.putNumber("Vision/FrontLimelightTX", LimelightHelpers.getTX(Vision.kturretlime));
+      // --- Swerve Internal State ---
+
+      Logger.recordOutput("Drive/ModuleStates/Actual", m_swerveDrive.getStates());
+
+      // --- FIX THIS SOON SO YOU CAN COMPARE SETPOINTS TO MEASURED ANGLES AND
+      // VELOCITY - bushi ----
+
+      // Logger.recordOutput("Drive/ModuleStates/Desired", swerveDrive.getStates());
+
+      Logger.recordOutput("Drive/ModulePositions", m_swerveDrive.getModulePositions());
+
+      // --- Sensors ---
+      Logger.recordOutput("Drive/Gyro/Yaw", m_swerveDrive.getYaw());
+      Logger.recordOutput("Drive/Gyro/Pitch", m_swerveDrive.getPitch()); // Useful for "is robot tipped?"
+
+      // --- Vision ---
+      // Adding a check to see if the robot actually sees a target in the front
+      // limelight
+      boolean turretHasTarget = LimelightHelpers.getTV(Vision.kturretlime);
+      boolean chassisHasTarget = LimelightHelpers.getTV(Vision.kchassislime);
+      Logger.recordOutput("Vision/FrontHasTarget", turretHasTarget);
+      if (turretHasTarget) {
+        Logger.recordOutput("Vision/FrontLimelightTY", LimelightHelpers.getTY(Vision.kturretlime));
+        SmartDashboard.putNumber("Vision/FrontLimelightTY", LimelightHelpers.getTY(Vision.kturretlime));
+        Logger.recordOutput("Vision/FrontLimelightTX", LimelightHelpers.getTX(Vision.kturretlime));
+        SmartDashboard.putNumber("Vision/FrontLimelightTX", LimelightHelpers.getTX(Vision.kturretlime));
+      }
+      if (chassisHasTarget) {
+        Logger.recordOutput("Vision/chassisLimelightTY", LimelightHelpers.getTY(Vision.kchassislime));
+        SmartDashboard.putNumber("Vision/chassisLimelightTY", LimelightHelpers.getTY(Vision.kchassislime));
+        Logger.recordOutput("Vision/chassisLimelightTX", LimelightHelpers.getTX(Vision.kchassislime));
+        SmartDashboard.putNumber("Vision/chassisLimelightTX", LimelightHelpers.getTX(Vision.kchassislime));
+      }
+
+      // updates odometry for use in advantagescope
     }
-    if (chassisHasTarget) {
-      Logger.recordOutput("Vision/chassisLimelightTY", LimelightHelpers.getTY(Vision.kchassislime));
-      SmartDashboard.putNumber("Vision/chassisLimelightTY", LimelightHelpers.getTY(Vision.kchassislime));
-      Logger.recordOutput("Vision/chassisLimelightTX", LimelightHelpers.getTX(Vision.kchassislime));
-      SmartDashboard.putNumber("Vision/chassisLimelightTX", LimelightHelpers.getTX(Vision.kchassislime));
-    }
-    
-
-    // updates odometry for use in advantagescope
-    
 
   }
 
@@ -250,48 +254,42 @@ public class SwerveSubsystem extends SubsystemBase {
   // limits
   @SuppressWarnings("resource")
   public void configureCurrentLimits() {
-    // Create the configuration object
-    CurrentLimitsConfigs talonConfigs = new CurrentLimitsConfigs();
+    if (!m_sysIdActive) {
 
-    // SUPPLY LIMIT (Battery/Breaker Protection)
-    // Helps prevent brownouts.
-    talonConfigs.SupplyCurrentLimitEnable = true;
-    talonConfigs.SupplyCurrentLimit = 40; // Limit to 40A
-    talonConfigs.SupplyCurrentLowerLimit = 60; // Allow 60A peak...
-    talonConfigs.SupplyCurrentLowerTime = 0.1; // ...for 0.1 seconds
+      // Create the configuration object
+      CurrentLimitsConfigs talonConfigs = new CurrentLimitsConfigs();
 
-    // STATOR LIMIT (Motor/Traction Protection)
-    // Limits acceleration torque. Crucial for avoiding wheel slip and motor heat.
-    // For Krakens/Falcons on swerve, 60A-80A is a common "aggressive" range.
-    talonConfigs.StatorCurrentLimitEnable = true;
-    talonConfigs.StatorCurrentLimit = 80;
+      // SUPPLY LIMIT (Battery/Breaker Protection)
+      // Helps prevent brownouts.
+      talonConfigs.SupplyCurrentLimitEnable = true;
+      talonConfigs.SupplyCurrentLimit = 40; // Limit to 40A
+      talonConfigs.SupplyCurrentLowerLimit = 60; // Allow 60A peak...
+      talonConfigs.SupplyCurrentLowerTime = 0.1; // ...for 0.1 seconds
 
-    // Apply to Talon Drive Motors
-    for (SwerveModule module : m_swerveDrive.getModules()) {
-      // Retrieve the drive motor and cast to TalonFX
-      // YAGSL's getMotor() returns an Object, so it should cast
-      Object driveMotorObj = module.getDriveMotor().getMotor();
-      Object angleMotorObj = module.getAngleMotor().getMotor();
-      if (driveMotorObj instanceof TalonFX driveMotor) {
-        driveMotor.getConfigurator().apply(talonConfigs);
+      // STATOR LIMIT (Motor/Traction Protection)
+      // Limits acceleration torque. Crucial for avoiding wheel slip and motor heat.
+      // For Krakens/Falcons on swerve, 60A-80A is a common "aggressive" range.
+      talonConfigs.StatorCurrentLimitEnable = true;
+      talonConfigs.StatorCurrentLimit = 80;
+
+      // Apply to Talon Drive Motors
+      for (SwerveModule module : m_swerveDrive.getModules()) {
+        // Retrieve the drive motor and cast to TalonFX
+        // YAGSL's getMotor() returns an Object, so it should cast
+        Object driveMotorObj = module.getDriveMotor().getMotor();
+        Object angleMotorObj = module.getAngleMotor().getMotor();
+        if (driveMotorObj instanceof TalonFX driveMotor) {
+          driveMotor.getConfigurator().apply(talonConfigs);
+        }
+        if (angleMotorObj instanceof SparkMax spark) {
+          SparkMaxConfig sparkConfig = new SparkMaxConfig();
+          sparkConfig.smartCurrentLimit(20);
+          spark.configure(sparkConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+        }
+
       }
-      if (angleMotorObj instanceof SparkMax spark) {
-        SparkMaxConfig sparkConfig = new SparkMaxConfig();
-        sparkConfig.smartCurrentLimit(20);
-        spark.configure(sparkConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
-      }
-
     }
-
   }
-
-  
-
-  
-
-  
-
-  
 
   @Override
   public void simulationPeriodic() {
@@ -828,8 +826,10 @@ public class SwerveSubsystem extends SubsystemBase {
   public ChassisSpeeds getFieldVelocity() {
     return m_swerveDrive.getFieldVelocity();
   }
+
   /**
    * Gets the simulated drivetrain for mounting simulated mechanisms to
+   * 
    * @return A {@link SwerveDriveSimulation} object
    */
   public SwerveDriveSimulation getSimDrive() {
@@ -894,5 +894,5 @@ public class SwerveSubsystem extends SubsystemBase {
   public SwerveDrive getSwerveDrive() {
     return m_swerveDrive;
   }
-  
+
 }

@@ -40,65 +40,66 @@ public class SysIDRoutines {
   private StringLogEntry m_angleSysIdStateLog;
   // log file for drive
   private StringLogEntry m_driveSysIdStateLog;
+  private SysIdRoutine.Config angleConfig;
+  public final SysIdRoutine angleSysIdRoutine;
+  private SysIdRoutine.Config driveConfig;
+  public final SysIdRoutine driveSysIdRoutine;
+
+  // cached inversion (this is supposed to prevent overrun)
+  private int m_cachedInversion;
 
   public SysIDRoutines(SwerveSubsystem drivetrain) {
     m_swerveSubsystem = drivetrain;
     m_swerveDrive = m_swerveSubsystem.getSwerveDrive();
     m_angleSysIdStateLog = new StringLogEntry(DataLogManager.getLog(), "sysid-test-state-angle-neo550");
     m_driveSysIdStateLog = new StringLogEntry(DataLogManager.getLog(), "sysid-test-state-drive-krakenx60");
+    /**
+     * Swerve Angular motor SysId Routine
+     */
+    angleConfig = new SysIdRoutine.Config(
+        edu.wpi.first.units.Units.Volts.of(1).per(Second), // Ramp: 1V/s
+        edu.wpi.first.units.Units.Volts.of(6), // Step: 6V (Safer for 550s)
+        edu.wpi.first.units.Units.Seconds.of(10), // Timeout
+        (state) -> {
+          m_angleSysIdStateLog.append(state.toString());
+          edu.wpi.first.wpilibj.DataLogManager
+              .log(String.format("sysid-test-state-angle-neo550:%s", state.toString()));
+        });
+    angleSysIdRoutine = new SysIdRoutine(
+        angleConfig,
+        new SysIdRoutine.Mechanism(
+            (measure) -> setAngleMotorVoltage(measure.in(Volts)),
+            (log) -> logAngleMotor(log),
+            m_swerveSubsystem));
+    /**
+     * End of Angle SysId Routine Setup
+     */
+    /**
+     * Drive Motor SysId Routine Setup
+     */
+    driveConfig = new SysIdRoutine.Config(
+        edu.wpi.first.units.Units.Volts.of(1.5).per(Second),
+        edu.wpi.first.units.Units.Volts.of(4),
+        edu.wpi.first.units.Units.Seconds.of(5),
+        (state) -> {
+          // Use the WPILib log entry for consistency
+          m_driveSysIdStateLog.append(state.toString());
+          edu.wpi.first.wpilibj.DataLogManager.log(
+              String.format("sysid-test-state-drive-krakenx60:%s", state.toString()));
+        });
+    driveSysIdRoutine = new SysIdRoutine(
+        driveConfig, new SysIdRoutine.Mechanism(
+            (measure) -> setDriveMotorVoltage(measure.in(Volts)),
+            (log) -> {
+              logDriveMotor(log);
+            },
+            m_swerveSubsystem));
+
+    /**
+     * End of Drive Motor SysId Routine Setup
+     */
+
   }
-
-  /**
-   * Swerve Angular motor SysId Routine
-   */
-  SysIdRoutine.Config angleConfig = new SysIdRoutine.Config(
-      edu.wpi.first.units.Units.Volts.of(1).per(Second), // Ramp: 1V/s
-      edu.wpi.first.units.Units.Volts.of(6), // Step: 6V (Safer for 550s)
-      edu.wpi.first.units.Units.Seconds.of(10), // Timeout
-      (state) -> {
-        m_angleSysIdStateLog.append(state.toString());
-        if (state != SysIdRoutine.State.kNone) {
-          prepareSteerMotorsForSysId();
-        }
-        edu.wpi.first.wpilibj.DataLogManager
-            .log(String.format("sysid-test-state-angle-neo550:%s", state.toString()));
-      });
-
-  public final SysIdRoutine angleSysIdRoutine = new SysIdRoutine(
-      angleConfig,
-      new SysIdRoutine.Mechanism(
-          (measure) -> setAngleMotorVoltage(measure.in(Volts)),
-          (log) -> logAngleMotor(log),
-          m_swerveSubsystem));
-  /**
-   * End of Angle SysId Routine Setup
-   */
-
-  /**
-   * Drive Motor SysId Routine Setup
-   */
-  SysIdRoutine.Config driveConfig = new SysIdRoutine.Config(
-      edu.wpi.first.units.Units.Volts.of(1.5).per(Second),
-      edu.wpi.first.units.Units.Volts.of(4),
-      edu.wpi.first.units.Units.Seconds.of(5),
-      (state) -> {
-        // Use the WPILib log entry for consistency
-        m_driveSysIdStateLog.append(state.toString());
-        edu.wpi.first.wpilibj.DataLogManager.log(
-            String.format("sysid-test-state-drive-krakenx60:%s", state.toString()));
-      });
-
-  public final SysIdRoutine driveSysIdRoutine = new SysIdRoutine(
-      driveConfig, new SysIdRoutine.Mechanism(
-          (measure) -> setDriveMotorVoltage(measure.in(Volts)),
-          (log) -> {
-            logDriveMotor(log);
-          },
-          m_swerveSubsystem));
-
-  /**
-   * End of Drive Motor SysId Routine Setup
-   */
 
   /**
    * Applies raw voltage to the Angle Motors (NEO 550s).
@@ -106,7 +107,7 @@ public class SysIDRoutines {
    * * @param volts Voltage to apply (-12 to +12)
    */
   public void setAngleMotorVoltage(double volts) {
-
+    m_swerveSubsystem.setSysIdActive(true);
     for (SwerveModule module : m_swerveDrive.getModules()) {
       SparkMax spark = (SparkMax) module.getAngleMotor().getMotor();
 
@@ -124,7 +125,7 @@ public class SysIDRoutines {
     SparkMax spark = (SparkMax) module.getAngleMotor().getMotor();
     SparkBaseConfigAccessor accessor = spark.configAccessor;
     RelativeEncoder encoder = spark.getEncoder();
-    double sign = accessor.getInverted() ? -1.0 : 1.0;
+    double sign = m_cachedInversion;
     double gearRatio = 46.42;
 
     double rawRotations = encoder.getPosition() * sign;
@@ -198,9 +199,12 @@ public class SysIDRoutines {
    * Wipes and prepares the azimuth motors for SysId testing
    */
   public void prepareSteerMotorsForSysId() {
+    SparkMax frontLeftSpark = (SparkMax) m_swerveDrive.getModules()[0].getAngleMotor().getMotor();
+    m_cachedInversion = frontLeftSpark.configAccessor.getInverted() ? -1 : 1;
     for (SwerveModule module : m_swerveDrive.getModules()) {
       SparkMax spark = (SparkMax) module.getAngleMotor().getMotor();
       SparkMaxConfig config = new SparkMaxConfig();
+      
 
       config
           .idleMode(SparkBaseConfig.IdleMode.kCoast)
@@ -213,7 +217,7 @@ public class SysIDRoutines {
           .forwardSoftLimitEnabled(false)
           .reverseSoftLimitEnabled(false);
 
-      spark.configure(config, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+      spark.configure(config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
 
     }
   }
@@ -226,7 +230,7 @@ public class SysIDRoutines {
    */
   public Command sysIdAngleDynam(SysIdRoutine.Direction direction) {
     return Commands.runOnce(this::prepareSteerMotorsForSysId)
-    .andThen(angleSysIdRoutine.dynamic(direction));
+        .andThen(angleSysIdRoutine.dynamic(direction));
   }
 
   /**
@@ -236,7 +240,7 @@ public class SysIDRoutines {
    */
   public Command sysIdAngleQuasi(SysIdRoutine.Direction direction) {
     return Commands.runOnce(this::prepareSteerMotorsForSysId)
-    .andThen(angleSysIdRoutine.quasistatic(direction));
+        .andThen(angleSysIdRoutine.quasistatic(direction));
   }
 
   /**
