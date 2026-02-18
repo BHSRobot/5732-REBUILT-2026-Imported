@@ -24,7 +24,8 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
 import frc.robot.subsystems.Swerve.SwerveSubsystem;
 
 import com.pathplanner.lib.commands.FollowPathCommand;
-import frc.robot.sim.RebuiltArena2026;
+import swervelib.simulation.ironmaple.simulation.seasonspecific.rebuilt2026.Arena2026Rebuilt;
+import swervelib.simulation.ironmaple.simulation.seasonspecific.rebuilt2026.RebuiltFuelOnField;
 
 /**
  * The VM is configured to automatically run this class, and to call the
@@ -175,8 +176,7 @@ public class Robot extends LoggedRobot {
   public void simulationInit() {
     var arena = SimulatedArena.getInstance();
     if (arena != null) {
-      arena.clearGamePieces();
-      arena.placeGamePiecesOnField();
+        arena.placeGamePiecesOnField();
     }
 
   }
