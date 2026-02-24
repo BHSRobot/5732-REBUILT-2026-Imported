@@ -43,6 +43,7 @@ public final class Constants {
     public static final int kHoppLenID = 18;
     public static final int kIndexerID = 19;
     public static final int kIntakeID = 20;
+    public static final int kIntakeExtendID = 21;
     
 
     //==Offsets==

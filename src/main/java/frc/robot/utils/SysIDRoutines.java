@@ -1,10 +1,9 @@
 package frc.robot.utils;
 
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+
+
 import frc.robot.subsystems.Swerve.SwerveConstants;
 import frc.robot.subsystems.Swerve.SwerveSubsystem;
-import swervelib.SwerveDrive;
 
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
@@ -13,46 +12,47 @@ import static edu.wpi.first.units.Units.RadiansPerSecond;
 import static edu.wpi.first.units.Units.Second;
 import static edu.wpi.first.units.Units.Volts;
 
+import org.littletonrobotics.junction.Logger;
+
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import swervelib.SwerveDrive;
 import swervelib.SwerveModule;
 
 import com.revrobotics.PersistMode;
-import com.revrobotics.RelativeEncoder;
+
 import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig;
-import com.revrobotics.spark.config.SparkBaseConfigAccessor;
+
 import com.revrobotics.spark.config.SparkMaxConfig;
 
-import edu.wpi.first.util.datalog.StringLogEntry;
-import edu.wpi.first.wpilibj.DataLogManager;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
+
 import edu.wpi.first.wpilibj.sysid.SysIdRoutineLog;
 import edu.wpi.first.wpilibj2.command.Commands;
 
 public class SysIDRoutines {
   private SwerveDrive m_swerveDrive;
   private SwerveSubsystem m_swerveSubsystem;
-  // log file for angle
-  private StringLogEntry m_angleSysIdStateLog;
-  // log file for drive
-  private StringLogEntry m_driveSysIdStateLog;
+  
   private SysIdRoutine.Config angleConfig;
   public final SysIdRoutine angleSysIdRoutine;
   private SysIdRoutine.Config driveConfig;
   public final SysIdRoutine driveSysIdRoutine;
 
-  // cached inversion (this is supposed to prevent overrun)
-  private int m_cachedInversion;
+  
+  // modules in an array 
+  SwerveModule[] modules = m_swerveDrive.getModules();
 
   public SysIDRoutines(SwerveSubsystem drivetrain) {
     m_swerveSubsystem = drivetrain;
     m_swerveDrive = m_swerveSubsystem.getSwerveDrive();
-    m_angleSysIdStateLog = new StringLogEntry(DataLogManager.getLog(), "sysid-test-state-angle-neo550");
-    m_driveSysIdStateLog = new StringLogEntry(DataLogManager.getLog(), "sysid-test-state-drive-krakenx60");
+    
     /**
      * Swerve Angular motor SysId Routine
      */
@@ -61,9 +61,7 @@ public class SysIDRoutines {
         edu.wpi.first.units.Units.Volts.of(6), // Step: 6V (Safer for 550s)
         edu.wpi.first.units.Units.Seconds.of(10), // Timeout
         (state) -> {
-          m_angleSysIdStateLog.append(state.toString());
-          edu.wpi.first.wpilibj.DataLogManager
-              .log(String.format("sysid-test-state-angle-neo550:%s", state.toString()));
+          Logger.recordOutput("sysid-test-state-angle-neo550:", state.toString());
         });
     angleSysIdRoutine = new SysIdRoutine(
         angleConfig,
@@ -74,6 +72,7 @@ public class SysIDRoutines {
     /**
      * End of Angle SysId Routine Setup
      */
+
     /**
      * Drive Motor SysId Routine Setup
      */
@@ -82,10 +81,7 @@ public class SysIDRoutines {
         edu.wpi.first.units.Units.Volts.of(4),
         edu.wpi.first.units.Units.Seconds.of(5),
         (state) -> {
-          // Use the WPILib log entry for consistency
-          m_driveSysIdStateLog.append(state.toString());
-          edu.wpi.first.wpilibj.DataLogManager.log(
-              String.format("sysid-test-state-drive-krakenx60:%s", state.toString()));
+          Logger.recordOutput("sysid-test-state-drive-krakenx60:", state.toString());
         });
     driveSysIdRoutine = new SysIdRoutine(
         driveConfig, new SysIdRoutine.Mechanism(
@@ -113,7 +109,7 @@ public class SysIDRoutines {
    */
   public void setAngleMotorVoltage(double volts) {
     m_swerveSubsystem.setSysIdActive(true);
-    for (SwerveModule module : m_swerveDrive.getModules()) {
+    for (SwerveModule module : modules) {
       SparkMax spark = (SparkMax) module.getAngleMotor().getMotor();
 
       spark.setVoltage(volts);
@@ -125,23 +121,15 @@ public class SysIDRoutines {
    * 
    */
   public void logAngleMotor(SysIdRoutineLog log) {
-
-    SwerveModule module = m_swerveDrive.getModules()[0];
-    SparkMax spark = (SparkMax) module.getAngleMotor().getMotor();
-    SparkBaseConfigAccessor accessor = spark.configAccessor;
-    RelativeEncoder encoder = spark.getEncoder();
-    double sign = m_cachedInversion;
-    double gearRatio = 46.42;
-
-    double rawRotations = encoder.getPosition() * sign;
-    double rawRPM = encoder.getVelocity() * sign;
-
-    double positionRadians = (rawRotations / gearRatio) * 2 * Math.PI;
-
-    double velocityRadPerSec = (rawRPM / gearRatio) * (2 * Math.PI) / 60.0;
+    SwerveModule module = modules[0]; // Front Left
+    
+    // Used YAGSL's cached getters 
+    double positionRadians = module.getAngleMotor().getPosition() * (Math.PI/180);
+    double velocityRadPerSec = module.getAngleMotor().getVelocity() * (Math.PI/180); 
+    double voltage = module.getAngleMotor().getVoltage(); 
 
     log.motor("angle-neo550")
-        .voltage(Volts.of(spark.getAppliedOutput() * spark.getBusVoltage()))
+        .voltage(Volts.of(voltage))
         .angularPosition(Radians.of(positionRadians))
         .angularVelocity(RadiansPerSecond.of(velocityRadPerSec));
   }
@@ -154,7 +142,7 @@ public class SysIDRoutines {
    */
   public void setDriveMotorVoltage(double volts) {
 
-    for (SwerveModule module : m_swerveDrive.getModules()) {
+    for (SwerveModule module : modules) {
       TalonFX talon = (TalonFX) module.getDriveMotor().getMotor();
 
       talon.setVoltage(volts);
@@ -167,22 +155,15 @@ public class SysIDRoutines {
    * 
    */
   public void logDriveMotor(SysIdRoutineLog log) {
-    SwerveModule module = m_swerveDrive.getModules()[0];
-    TalonFX talon = (TalonFX) module.getDriveMotor().getMotor();
-    double gearRatio = 4.71;
-    double wheelCircumference = SwerveConstants.kWheelDiameter * Math.PI; // Don't forget PI
+    SwerveModule module = modules[0]; // Front Left
 
-    double rawRotations = talon.getPosition().getValueAsDouble();
-    double rawRPS = talon.getVelocity().getValueAsDouble(); // Phoenix 6 is RPS, not RPM
-
-    double positionMeters = (rawRotations / gearRatio) * wheelCircumference;
-
-    // Phoenix 6 velocity is natively Rotations Per Second, no need to divide by 60
-    double velocityMetersPerSec = (rawRPS / gearRatio) * wheelCircumference;
+    // Used YAGSL's cached getters YAGSL already applies wheel circumference and gear ratios!!!
+    double positionMeters = module.getDriveMotor().getPosition();
+    double velocityMetersPerSec = module.getDriveMotor().getVelocity();
+    double voltage = module.getDriveMotor().getVoltage();
 
     log.motor("drive-krakenx60")
-        // Phoenix 6 getMotorVoltage is already in Volts
-        .voltage(Volts.of(talon.getMotorVoltage().getValueAsDouble()))
+        .voltage(Volts.of(voltage))
         .linearPosition(Meters.of(positionMeters))
         .linearVelocity(MetersPerSecond.of(velocityMetersPerSec));
   }
@@ -191,7 +172,8 @@ public class SysIDRoutines {
    * Wipes and prepares the drive motors for SysId testing
    */
   private void prepareDriveMotorsForSysId() {
-    for (SwerveModule module : m_swerveDrive.getModules()) {
+    
+    for (SwerveModule module : modules) {
       TalonFX talon = (TalonFX) module.getDriveMotor().getMotor();
       TalonFXConfiguration config = new TalonFXConfiguration();
       config.MotorOutput.NeutralMode = NeutralModeValue.Coast;
@@ -204,9 +186,8 @@ public class SysIDRoutines {
    * Wipes and prepares the azimuth motors for SysId testing
    */
   public void prepareSteerMotorsForSysId() {
-    SparkMax frontLeftSpark = (SparkMax) m_swerveDrive.getModules()[0].getAngleMotor().getMotor();
-    m_cachedInversion = frontLeftSpark.configAccessor.getInverted() ? -1 : 1;
-    for (SwerveModule module : m_swerveDrive.getModules()) {
+    
+    for (SwerveModule module : modules) {
       SparkMax spark = (SparkMax) module.getAngleMotor().getMotor();
       SparkMaxConfig config = new SparkMaxConfig();
       
@@ -235,7 +216,8 @@ public class SysIDRoutines {
    */
   public Command sysIdAngleDynam(SysIdRoutine.Direction direction) {
     return Commands.runOnce(this::prepareSteerMotorsForSysId)
-        .andThen(angleSysIdRoutine.dynamic(direction));
+        .andThen(angleSysIdRoutine.dynamic(direction))
+        .withName("sysid dynamic angle command");
   }
 
   /**
@@ -245,7 +227,8 @@ public class SysIDRoutines {
    */
   public Command sysIdAngleQuasi(SysIdRoutine.Direction direction) {
     return Commands.runOnce(this::prepareSteerMotorsForSysId)
-        .andThen(angleSysIdRoutine.quasistatic(direction));
+        .andThen(angleSysIdRoutine.quasistatic(direction))
+        .withName("sysid quasistatic angle command");
         
   }
 
@@ -258,7 +241,8 @@ public class SysIDRoutines {
   public Command sysIdDriveDynam(SysIdRoutine.Direction direction) {
     // Run the prepare method ONCE, then run the routine
     return Commands.runOnce(this::prepareDriveMotorsForSysId)
-        .andThen(driveSysIdRoutine.dynamic(direction));
+        .andThen(driveSysIdRoutine.dynamic(direction))
+        .withName("sysid dynamic drive command");
   }
 
   /**
@@ -270,6 +254,7 @@ public class SysIDRoutines {
   public Command sysIdDriveQuasi(SysIdRoutine.Direction direction) {
     // Run the prepare method ONCE, then run the routine
     return Commands.runOnce(this::prepareDriveMotorsForSysId)
-        .andThen(driveSysIdRoutine.quasistatic(direction));
+        .andThen(driveSysIdRoutine.quasistatic(direction))
+        .withName("sysid quasistatic drive command");
   }
 }

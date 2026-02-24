@@ -63,18 +63,23 @@ import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.sysid.SysIdRoutineLog;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.RunCommand;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Config;
+
 import frc.robot.RobotContainer;
 import frc.robot.Commands.ChassisVisionAim;
 import frc.robot.utils.Constants;
+import frc.robot.subsystems.Swerve.SwerveConstants;
+import frc.robot.subsystems.Turret.TurretAzimuth;
 import frc.robot.utils.Constants.Vision;
 import frc.robot.utils.LimelightHelpers;
 import frc.robot.utils.LimelightHelpers.PoseEstimate;
+
 import swervelib.SwerveController;
 import swervelib.SwerveDrive;
 import swervelib.SwerveDriveTest;
@@ -102,6 +107,10 @@ import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.config.SparkBaseConfigAccessor;
 import edu.wpi.first.util.datalog.StringLogEntry;
+import frc.robot.subsystems.Turret.TurretAzimuth;
+
+
+
 
 public class SwerveSubsystem extends SubsystemBase {
 
@@ -114,6 +123,12 @@ public class SwerveSubsystem extends SubsystemBase {
 
   public void setSysIdActive(boolean active) {
     m_sysIdActive = active;
+  }
+
+  private Supplier<Rotation2d> m_turretAngleSupplier = () -> Rotation2d.fromDegrees(0);
+
+  public void setTurretAngleSupplier(Supplier<Rotation2d> turretAngleSupplier) {
+    m_turretAngleSupplier = turretAngleSupplier;
   }
 
   // logging robot velocity
@@ -187,7 +202,15 @@ public class SwerveSubsystem extends SubsystemBase {
         SwerveConstants.kMaxSpeedMetersPerSecond,
         new Pose2d(new Translation2d(Meter.of(2), Meter.of(0)),
             Rotation2d.fromDegrees(0)));
-
+    LimelightHelpers.setCameraPose_RobotSpace(
+      Vision.kchassislime, 
+      SwerveConstants.CHASSIS_CAMERA_FORWARD_OFFSET, 
+      0, 
+      SwerveConstants.CHASSIS_CAMERA_Z_HEIGHT, 
+      SwerveConstants.CHASSIS_CAMERA_ROLL, 
+      SwerveConstants.CHASSIS_CAMERA_PITCH, 
+      SwerveConstants.CHASSIS_CAMERA_YAW
+    );
     configureCurrentLimits();
 
   }
@@ -262,20 +285,20 @@ public class SwerveSubsystem extends SubsystemBase {
       // SUPPLY LIMIT (Battery/Breaker Protection)
       // Helps prevent brownouts.
       talonConfigs.SupplyCurrentLimitEnable = true;
-      talonConfigs.SupplyCurrentLimit = 40; // Limit to 40A
-      talonConfigs.SupplyCurrentLowerLimit = 60; // Allow 60A peak...
-      talonConfigs.SupplyCurrentLowerTime = 0.1; // ...for 0.1 seconds
+      talonConfigs.SupplyCurrentLimit = 60; // Limit to 60A Peak
+      talonConfigs.SupplyCurrentLowerLimit = 40; // 40 AMP threshold
+      talonConfigs.SupplyCurrentLowerTime = 0.1; // ...after 0.1 seconds
 
       // STATOR LIMIT (Motor/Traction Protection)
-      // Limits acceleration torque. Crucial for avoiding wheel slip and motor heat.
-      // For Krakens/Falcons on swerve, 60A-80A is a common "aggressive" range.
+      // Limits acceleration torque. Crucial for avoiding wheel slip and motor heat
+      // For Krakens/Falcons on swerve, 60A-80A is a common "aggressive" range
       talonConfigs.StatorCurrentLimitEnable = true;
       talonConfigs.StatorCurrentLimit = 80;
 
       // Apply to Talon Drive Motors
       for (SwerveModule module : m_swerveDrive.getModules()) {
         // Retrieve the drive motor and cast to TalonFX
-        // YAGSL's getMotor() returns an Object, so it should cast
+        // YAGSL's getMotor() returns an Object, so we should cast
         Object driveMotorObj = module.getDriveMotor().getMotor();
         Object angleMotorObj = module.getAngleMotor().getMotor();
         if (driveMotorObj instanceof TalonFX driveMotor) {
@@ -361,7 +384,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
     // Preload PathPlanner Path finding
     // IF USING CUSTOM PATHFINDER ADD BEFORE THIS LINE
-    PathfindingCommand.warmupCommand().schedule();
+    CommandScheduler.getInstance().schedule(PathfindingCommand.warmupCommand());
+    
   }
 
   /**
@@ -377,9 +401,9 @@ public class SwerveSubsystem extends SubsystemBase {
   }
 
   /*
-   * Command to aim the robot at target once apriltag detected
+   * Command to aim the robot chassis at target once apriltag detected
    */
-  public Command aimAtTarget() {
+  public Command aimChassisAtTarget() {
     return new ChassisVisionAim(null, null);
 
   }
@@ -659,10 +683,42 @@ public class SwerveSubsystem extends SubsystemBase {
     // Calculate common values once
     double robotYaw = m_swerveDrive.getOdometryHeading().getDegrees();
     double angularVel = Units.radiansToDegrees(m_swerveDrive.getRobotVelocity().omegaRadiansPerSecond);
-
+    
     // Process each camera using a helper method
     processLimelight(Vision.kturretlime, robotYaw, angularVel);
     processLimelight(Vision.kchassislime, robotYaw, angularVel);
+  }
+
+  /**
+   * Updates the Limelight's knowledge of where it is physically located on the robot.
+   * Call this periodically before fetching the MegaTag2 pose.
+   * * @param turretAngle The current Rotation2d of the turret relative to the chassis forward.
+   */
+  public void updateTurretCameraExtrinsics(Rotation2d turretAngle) {
+    
+    // Assuming the camera faces perfectly forward on the turret, it sits at (Radius, 0)
+    Translation2d cameraRelativeToTurret = new Translation2d(SwerveConstants.CAMERA_RADIUS_FROM_TURRET, 0.0);
+
+    
+    Translation2d rotatedCameraOffset = cameraRelativeToTurret.rotateBy(turretAngle);
+
+   
+    double finalCameraForward = SwerveConstants.TURRET_CENTER_X_OFFSET + rotatedCameraOffset.getX();
+    double finalCameraSide = SwerveConstants.TURRET_CENTER_Y_OFFSET + rotatedCameraOffset.getY();
+    
+    
+    double finalCameraYaw = turretAngle.getDegrees();
+
+    
+    LimelightHelpers.setCameraPose_RobotSpace(
+      Vision.kturretlime, 
+      finalCameraForward, 
+      finalCameraSide, 
+      SwerveConstants.CAMERA_Z_HEIGHT, 
+      SwerveConstants.CAMERA_ROLL, 
+      SwerveConstants.CAMERA_PITCH, 
+      finalCameraYaw
+    );
   }
 
   /**
@@ -671,12 +727,12 @@ public class SwerveSubsystem extends SubsystemBase {
   private void processLimelight(String cameraName, double yaw, double velocity) {
     // Update orientation for MegaTag2
     LimelightHelpers.SetRobotOrientation(cameraName, yaw, velocity, 0.0, 0.0, 0.0, 0.0);
-
+    updateTurretCameraExtrinsics(m_turretAngleSupplier.get());
     // If there is no target, exit early :)
     if (!LimelightHelpers.getTV(cameraName))
       return;
 
-    LimelightHelpers.PoseEstimate estimate = LimelightHelpers.getBotPoseEstimate_wpiBlue(cameraName);
+    LimelightHelpers.PoseEstimate estimate = LimelightHelpers.getBotPoseEstimate_wpiBlue_MegaTag2(cameraName);
 
     // FILTERS: Max distance 4.5m AND filter high ambiguity on single-tag detections
     boolean isFar = estimate.avgTagDist > 5;

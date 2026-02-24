@@ -8,23 +8,27 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.Swerve.SwerveSubsystem;
 
 import frc.robot.subsystems.Turret.TurretAzimuth;
+import frc.robot.subsystems.Turret.TurretShooter;
 import frc.robot.utils.FieldConstants;
 import edu.wpi.first.math.geometry.Translation3d;
 
+
 public class TurretVisionAim extends Command {
     private final SwerveSubsystem driveSubsystem;
-    private final TurretAzimuth turretAngle;
+    private final TurretAzimuth m_turretAngle;
+    private final TurretShooter m_turretShooter;
 
     private Translation3d targetLocation;
 
-    public TurretVisionAim(SwerveSubsystem drive, TurretAzimuth turret) {
+    public TurretVisionAim(SwerveSubsystem drive, TurretAzimuth turret, TurretShooter turretshoot) {
         targetLocation = new Translation3d(0,0,0);
-        this.driveSubsystem = drive;
-        this.turretAngle = turret;
+        driveSubsystem = drive;
+        m_turretAngle = turret;
+        m_turretShooter = turretshoot;
 
         // Declare dependencies so the scheduler knows this command uses these
         // subsystems
-        addRequirements(turretAngle);
+        addRequirements(m_turretAngle);
 
     }
 
@@ -47,8 +51,8 @@ public class TurretVisionAim extends Command {
         Rotation2d angleToTarget = new Rotation2d(Math.atan2(dy, dx));
 
         Rotation2d turretSetpoint = angleToTarget.minus(robotPose.getRotation());
-
-        turretAngle.setTargetAngle(turretSetpoint.getDegrees());
+        m_turretShooter.prepareToShoot(Math.sqrt(Math.pow(dx,2)+Math.pow(dy,2)));
+        m_turretAngle.setTargetAngle(turretSetpoint.getDegrees());
 
     }
 

@@ -48,8 +48,7 @@ public class Robot extends LoggedRobot {
    */
   @Override
   public void robotInit() {
-
-    FollowPathCommand.warmupCommand().schedule();
+    CommandScheduler.getInstance().schedule(FollowPathCommand.warmupCommand());
     // Set up data receivers & replay source
     switch (Constants.currentMode) {
       case REAL:
@@ -133,7 +132,7 @@ public class Robot extends LoggedRobot {
 
     // schedule the autonomous command (example)
     if (m_autonomousCommand != null) {
-      m_autonomousCommand.schedule();
+      CommandScheduler.getInstance().schedule(m_autonomousCommand);
     }
   }
 

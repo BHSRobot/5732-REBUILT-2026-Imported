@@ -5,6 +5,8 @@ import frc.robot.utils.Constants;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.ResetMode;
 import org.littletonrobotics.junction.Logger;
+import org.littletonrobotics.junction.inputs.LoggableInputs;
+
 import com.revrobotics.PersistMode;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -23,13 +25,22 @@ public class Intake extends SubsystemBase {
 
     @Override
     public void periodic() {
-        io.updateInputs(inputs); // Pull data from hardware/sim
-        // Logger.processInputs("Intake", inputs); // If using AdvantageKit
+        io.updateInputs(inputs); 
+        //Logger.processInputs("Intake", (LoggableInputs) inputs); // If using AdvantageKit
 
         switch (iState) {
-            case DISABLED -> io.setVoltage(0);
-            case EJECTING -> io.setVoltage(-12.0); 
-            case INTAKING -> io.setVoltage(12.0);
+            case DISABLED -> {
+                io.setIntakeVoltage(0.0);
+                io.setExtended(false);
+            }
+            case EJECTING -> {
+                io.setIntakeRPM(-3600);
+                io.setExtended(true);
+            }
+            case INTAKING -> {
+                io.setIntakeRPM(3600);
+                io.setExtended(true);
+            }
         }
     }
 

@@ -43,6 +43,9 @@ import frc.robot.subsystems.Swerve.SwerveConstants;
 //import frc.robot.commands.ScoringPositions;
 
 import frc.robot.subsystems.Swerve.SwerveSubsystem;
+import frc.robot.subsystems.Turret.Indexer;
+import frc.robot.subsystems.Turret.TurretAzimuth;
+import frc.robot.subsystems.Turret.TurretShooter;
 import frc.robot.utils.Constants.OIConstants;
 import frc.robot.subsystems.Intake.Intake;
 import frc.robot.subsystems.Intake.IntakeIOReal;
@@ -64,6 +67,10 @@ public class RobotContainer {
   //public for now because idk how else sysidroutines will use it
   public final SwerveSubsystem m_driveBase;
   private final Intake m_intake;
+  private final TurretAzimuth m_turretAzimuth;
+  private final Indexer m_indexer;
+  private final TurretShooter m_shooter;
+  
   // private final SysIDRoutines m_routines;
   
 
@@ -99,6 +106,13 @@ public class RobotContainer {
     } else {
         m_intake = null;
     }
+
+    m_turretAzimuth = new TurretAzimuth();
+    m_driveBase.setTurretAngleSupplier(() -> Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
+    m_indexer = new Indexer();
+    m_shooter = new TurretShooter();
+
+
 
     // auto = new Autos();
 
