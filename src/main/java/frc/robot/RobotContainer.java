@@ -31,6 +31,8 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 import edu.wpi.first.wpilibj2.command.RunCommand;
+import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
+import edu.wpi.first.wpilibj2.command.WaitCommand;
 import edu.wpi.first.math.MathUtil;
 
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -108,11 +110,13 @@ public class RobotContainer {
     } else {
         m_intake = null;
     }
-
-    m_turretAzimuth = new TurretAzimuth();
-    m_driveBase.setTurretAngleSupplier(() -> Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
+    // change when robot is built
+    m_turretAzimuth = null;
+    //m_driveBase.setTurretAngleSupplier(() -> Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
     m_indexer = new Indexer();
-    m_shooter = new TurretShooter();
+    //change when robot is built
+    m_shooter = null;
+
 
 
 
@@ -149,9 +153,9 @@ public class RobotContainer {
     configureNamedCommands();
     SmartDashboard.putBoolean("TuningModeActive", false);
 
-    m_turretAzimuth.setDefaultCommand(
-      new TurretVisionAim(m_driveBase, m_turretAzimuth, m_shooter)
-    );
+    // m_turretAzimuth.setDefaultCommand(
+    //   new TurretVisionAim(m_driveBase, m_turretAzimuth, m_shooter)
+    // );
   }
 
   private void configureBindings() {
@@ -177,6 +181,14 @@ public class RobotContainer {
     // m_driverController.leftTrigger().whileTrue(
     //   m_intake.ejectCommand()
     // );
+
+    m_driverController.rightBumper().whileTrue(
+       //new SequentialCommandGroup(
+      //   new InstantCommand(() -> m_indexer.rollerWarmup()),
+      //   new WaitCommand(0.5),
+        m_indexer.runIndexer());
+     // );
+    
     
     // ==== OPERATOR BINDS ====
     // HOLD A to aim the limelight at your target
@@ -184,8 +196,9 @@ public class RobotContainer {
     //
     // m_opController.a().whileTrue(
     //   new VisionAim(m_driveBase, m_driverController));
-    m_driverController.rightTrigger().whileTrue(
-        new RunCommand(() -> m_shooter.setAiming()));
+
+    // m_driverController.rightTrigger().whileTrue(
+    //     new RunCommand(() -> m_shooter.setAiming()));
     
     // ==== SYS ID BINDS (comment these out when not in use) ====
 

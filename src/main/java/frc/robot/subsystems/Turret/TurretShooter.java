@@ -50,6 +50,7 @@ public class TurretShooter extends SubsystemBase {
 
     private final InterpolatingDoubleTreeMap rpmTable = new InterpolatingDoubleTreeMap();
     private final InterpolatingDoubleTreeMap hoodTable = new InterpolatingDoubleTreeMap();
+    private final InterpolatingDoubleTreeMap tofTable = new InterpolatingDoubleTreeMap();
 
     private static final LoggedTunableNumber tuningRpm = new LoggedTunableNumber("Tuning/Shooter/Target RPM", 2000.0);
     private static final LoggedTunableNumber tuningHood = new LoggedTunableNumber("Tuning/Shooter/Target Hood", 20.0);
@@ -70,6 +71,8 @@ public class TurretShooter extends SubsystemBase {
         m_hoodMotor.configure(Configs.TurretConfigs.hoodConfig, ResetMode.kNoResetSafeParameters,
                 PersistMode.kPersistParameters);
         m_turretHoodClosedLoop = m_hoodMotor.getClosedLoopController();
+
+        // ALL LUT SETUP GOES HERE!!
 
     }
 

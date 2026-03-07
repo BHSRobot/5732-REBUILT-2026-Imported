@@ -16,7 +16,7 @@ import frc.robot.utils.Configs;
 public class Intake extends SubsystemBase {
     private final IntakeIO io;
     private final IntakeIO.IntakeIOInputs inputs = new IntakeIO.IntakeIOInputs();
-    private IntakeState iState = IntakeState.DISABLED;
+    private IntakeState intakeState = IntakeState.DISABLED;
 
     
     public Intake(IntakeIO io) {
@@ -28,7 +28,7 @@ public class Intake extends SubsystemBase {
         io.updateInputs(inputs); 
         //Logger.processInputs("Intake", (LoggableInputs) inputs); // If using AdvantageKit
 
-        switch (iState) {
+        switch (intakeState) {
             case DISABLED -> {
                 io.setIntakeVoltage(0.0);
                 io.setExtended(false);
@@ -45,7 +45,7 @@ public class Intake extends SubsystemBase {
     }
 
     public void setIntakeState(IntakeState state) {
-        iState = state;
+        intakeState = state;
     }
     
     public enum IntakeState { INTAKING, EJECTING, DISABLED }

@@ -10,10 +10,10 @@ public class FieldConstants {
 
         public static final Distance ALLIANCE_ZONE = Inches.of(156.06);
 
-        public static final Translation3d HUB_BLUE =
-                new Translation3d(Inches.of(181.56), FIELD_WIDTH.div(2), Inches.of(56.4));
-        public static final Translation3d HUB_RED =
-                new Translation3d(FIELD_LENGTH.minus(Inches.of(181.56)), FIELD_WIDTH.div(2), Inches.of(56.4));
+        public static final Translation2d HUB_BLUE =
+                new Translation2d(Inches.of(181.56), FIELD_WIDTH.div(2));
+        public static final Translation2d HUB_RED =
+                new Translation2d(FIELD_LENGTH.minus(Inches.of(181.56)), FIELD_WIDTH.div(2));
         public static final Distance FUNNEL_RADIUS = Inches.of(24);
         public static final Distance FUNNEL_HEIGHT = Inches.of(72 - 56.4);
 
