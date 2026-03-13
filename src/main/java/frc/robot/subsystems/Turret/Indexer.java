@@ -90,7 +90,7 @@ public class Indexer extends SubsystemBase {
                 runOnce(() -> setIndexerState(IndexerState.WARMUP)),
                 new edu.wpi.first.wpilibj2.command.WaitCommand(0.5), // Adjust time as needed
 
-                runOnce(() -> setIndexerState(IndexerState.RUNNING)))
+                run(() -> setIndexerState(IndexerState.RUNNING)))
                 .finallyDo(() -> setIndexerState(IndexerState.DISABLED))
                 .withName("RunIndexerSequence");
     }
@@ -125,12 +125,12 @@ public class Indexer extends SubsystemBase {
                 stop();
             }
             case WARMUP -> {
-                setRollersRawSpeed(-.25);
+                setRollersRawSpeed(1);
                 setIndexRawSpeed(0);
             }
             case RUNNING -> {
-                setRollersRawSpeed(-.25);
-                setIndexRawSpeed(.25);
+                setRollersRawSpeed(1);
+                setIndexRawSpeed(.35);
             }
 
         }

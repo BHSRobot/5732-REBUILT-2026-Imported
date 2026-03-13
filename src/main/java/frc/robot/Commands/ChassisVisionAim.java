@@ -1,89 +1,144 @@
 package frc.robot.Commands;
 
-import frc.robot.utils.Constants;
-import frc.robot.utils.Constants.OIConstants;
-import frc.robot.utils.Constants.Vision;
-import frc.robot.utils.LimelightHelpers;
-import swervelib.math.SwerveMath;
-
-import java.io.File;
+import java.util.function.DoubleSupplier;
 
 import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj.Filesystem;
+import edu.wpi.first.math.geometry.Twist2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import frc.robot.subsystems.Swerve.SwerveConstants;
 import frc.robot.subsystems.Swerve.SwerveSubsystem;
-import edu.wpi.first.math.controller.ProfiledPIDController;
-import edu.wpi.first.math.trajectory.TrapezoidProfile.Constraints;
-import edu.wpi.first.math.trajectory.TrapezoidProfile;
-
+import frc.robot.subsystems.Turret.TurretShooter;
+import frc.robot.subsystems.Turret.Indexer;
+import frc.robot.subsystems.Turret.Indexer.IndexerState;
+import frc.robot.utils.Constants.OIConstants;
+import frc.robot.utils.FieldConstants;
+import swervelib.math.SwerveMath;
 
 public class ChassisVisionAim extends Command {
-
-    //private SwerveSubsystem m_driveBase;
-    private CommandXboxController m_driverController = new CommandXboxController(
-            OIConstants.kDriverControllerPort);
-
-    private static double m_angularVelocity;
-    private static double m_targetError;
-    private final double m_minTorque = 1.0;
-    private ProfiledPIDController aimPIDController = new ProfiledPIDController(
-        Vision.kPVision,
-        0.0,
-        Vision.kDVision,
-        new Constraints(SwerveConstants.kMaxAngularSpeed, (SwerveConstants.kMaxAngularSpeed) * 2)
-    );
+    private final SwerveSubsystem m_driveSubsystem;
+    private final TurretShooter m_turretShooter;
+    private final Indexer m_index;
     
+    // 1. Store the joystick suppliers
+    private final DoubleSupplier m_translationX;
+    private final DoubleSupplier m_translationY;
+    
+    // 2. Add a PID Controller to calculate our rotation speed
+    private final PIDController m_headingController;
 
+    public ChassisVisionAim(SwerveSubsystem drive, TurretShooter turretshoot, Indexer indexer,
+            DoubleSupplier translationX, DoubleSupplier translationY) {
+        
+        m_driveSubsystem = drive;
+        m_turretShooter = turretshoot;
+        m_index = indexer;
+        m_translationX = translationX;
+        m_translationY = translationY;
 
-    public ChassisVisionAim(SwerveSubsystem driveBase, CommandXboxController controller) {
-        //this.m_driveBase = driveBase;
-        this.m_driverController = controller;
+        // Tune these PID constants for your robot
+        m_headingController = new PIDController(0.4, 0.0, 0.1); 
+        // tell the PID controller that -180 degrees and 180 degrees are the same thing
+        m_headingController.enableContinuousInput(-Math.PI, Math.PI);
 
-        // Require the drivebase so no other drive command runs at the same time
-        //addRequirements(m_driveBase);
+        addRequirements(m_driveSubsystem, m_turretShooter, m_index);
     }
 
     @Override
-    public void initialize() {
+public void execute() {
 
+    Translation2d actualTargetLocation = new Translation2d(0, 0);
+    var alliance = DriverStation.getAlliance();
+    boolean isRed = alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red;
+
+    if (isRed) {
+        actualTargetLocation = FieldConstants.HUB_RED;
+    } else {
+        actualTargetLocation = FieldConstants.HUB_BLUE;
     }
 
-    @Override
-    public void execute() {
-        m_angularVelocity = 0;
-        m_targetError = 0;
-        if (LimelightHelpers.getTV(Vision.kturretlime)) {
-            // TX flipped for more intuitive use
-            m_targetError = -LimelightHelpers.getTX(Vision.kturretlime);
-            m_angularVelocity = m_targetError * Vision.kPVision;
-            m_angularVelocity *= SwerveConstants.kMaxAngularSpeed;
-        }
-        // m_driveBase.drive(
-        //         SwerveMath.cubeTranslation(new Translation2d(
-        //             -MathUtil.applyDeadband(m_driverController.getLeftY(),OIConstants.kDriveDeadband),
-        //             -MathUtil.applyDeadband(m_driverController.getLeftX(), OIConstants.kDriveDeadband)))
-        //             .times(SwerveConstants.kMaxSpeedMetersPerSecond),
-        //         m_angularVelocity,
-        //         true);
+    
+    double latencySeconds = 0.15; 
+    Pose2d currentPose = m_driveSubsystem.getPose();
+    var speeds = m_driveSubsystem.getRobotVelocity();
+
+    edu.wpi.first.math.geometry.Twist2d twist = new edu.wpi.first.math.geometry.Twist2d(
+            speeds.vxMetersPerSecond * latencySeconds,
+            speeds.vyMetersPerSecond * latencySeconds,
+            speeds.omegaRadiansPerSecond * latencySeconds);
+
+    Pose2d predictedPose = currentPose.exp(twist);
+    Translation2d robotLocation = predictedPose.getTranslation();
+
+    Translation2d fieldRelativeVelocity = new Translation2d(
+            speeds.vxMetersPerSecond,
+            speeds.vyMetersPerSecond).rotateBy(currentPose.getRotation());
+
+    double virtualDistance = robotLocation.getDistance(actualTargetLocation);
+    double timeOfFlight = 0.0;
+    Translation2d virtualTarget = actualTargetLocation;
+
+    for (int i = 0; i < 4; i++) {
+        timeOfFlight = m_turretShooter.getEstimatedTimeOfFlight(virtualDistance);
+        Translation2d offset = fieldRelativeVelocity.times(timeOfFlight);
+        virtualTarget = actualTargetLocation.minus(offset);
+        virtualDistance = robotLocation.getDistance(virtualTarget);
     }
+
+    double dx = virtualTarget.getX() - robotLocation.getX();
+    double dy = virtualTarget.getY() - robotLocation.getY();
+    Rotation2d fieldRelativeAngleToTarget = new Rotation2d(Math.atan2(dy, dx));
+
+    
+    Translation2d translation = SwerveMath.cubeTranslation(new Translation2d(
+        -MathUtil.applyDeadband(m_translationX.getAsDouble(), OIConstants.kDriveDeadband),
+        -MathUtil.applyDeadband(m_translationY.getAsDouble(), OIConstants.kDriveDeadband)
+    )).times(SwerveConstants.kMaxSpeedMetersPerSecond);
+
+    // Apply the 180-degree flip if on Red Alliance so "Forward" is always away from driver
+    if (isRed) {
+        translation = translation.rotateBy(Rotation2d.fromDegrees(180));
+    }
+
+    // --- 4. ROTATION LOGIC (PID Heading Lock) ---
+    double omega = m_headingController.calculate(
+        currentPose.getRotation().getRadians(), 
+        fieldRelativeAngleToTarget.getRadians()
+    );
+
+    // --- 5. DRIVE & SHOOT ---
+    // Use 'true' for fieldRelative because we handled alliance flipping manually above
+    m_driveSubsystem.drive(translation, omega, true);
+
+    m_turretShooter.prepareToShoot(virtualDistance);
+
+    
+    boolean isChassisAtAngle = Math.abs(currentPose.getRotation().minus(fieldRelativeAngleToTarget).getRadians()) < Math.toRadians(2.0);
+    boolean isShooterReady = m_turretShooter.isAtTargetRPM();
+
+    if (isShooterReady && isChassisAtAngle) {
+        m_index.setIndexerState(IndexerState.RUNNING);
+    } else {
+        m_index.setIndexerState(IndexerState.WARMUP);
+    }
+}
 
     @Override
     public void end(boolean interrupted) {
-        //m_driveBase.setChassisSpeeds(new ChassisSpeeds(0, 0, 0));
+        // when you let go of the button stop everything.
+        m_index.setIndexerState(IndexerState.DISABLED);
+        m_turretShooter.setIdle();
+        
+        // Stop the robot from drifting when the command ends
+        m_driveSubsystem.drive(new Translation2d(0, 0), 0, true);
     }
 
     @Override
     public boolean isFinished() {
-        if (LimelightHelpers.getTV(Vision.kturretlime)) {
-            // TX flipped for more intuitive use
-            m_targetError = -LimelightHelpers.getTX(Vision.kturretlime);
-            return Math.abs(m_targetError) < 1.0;
-        }
         return false;
     }
-
 }

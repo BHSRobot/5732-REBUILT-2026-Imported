@@ -105,7 +105,7 @@ public class RobotContainer {
 
       m_intake = new Intake(new IntakeIOSim(m_driveBase.getSimDrive()));
     } else {
-      m_intake = null;
+      m_intake = new Intake(new IntakeIOReal());
     }
     // change when robot is built
     m_turretAzimuth = null;
@@ -181,12 +181,15 @@ public class RobotContainer {
 
     m_driverController.leftTrigger().whileTrue(
         m_intake.intakeCommand());
+
     m_driverController.y().whileTrue(
       m_intake.testExtend()
     );
     m_driverController.b().whileTrue(
       m_intake.testRetract()
     );
+
+    
 
 
     // ==== OPERATOR BINDS ====
