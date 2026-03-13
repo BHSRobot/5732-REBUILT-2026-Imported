@@ -159,6 +159,7 @@ public class RobotContainer {
     // PRESS A to zero the gyro to your current heading
     // HOLD X to lock robot in defensive stance
 
+
     // creates a trigger for quick field/robot relative control switching
     new Trigger(m_driverController.povUp()).onTrue(
         new InstantCommand(() -> fieldRelative = !fieldRelative));
@@ -181,6 +182,7 @@ public class RobotContainer {
 
     m_driverController.leftTrigger().whileTrue(
         m_intake.intakeCommand());
+
     m_driverController.y().whileTrue(
       m_intake.testExtend()
     );
@@ -235,6 +237,27 @@ public class RobotContainer {
 
   public void configureNamedCommands() {
 
+    NamedCommands.registerCommand("aimchassisandshoot", new ChassisVisionAim(m_driveBase, m_shooter, m_indexer, whatSideAmIOn().getMeasureX(), whatSideAmIOn().getY()));
+
+  }
+
+  public Translation2d whatSideAmIOn() {
+    Translation2d translation = SwerveMath.cubeTranslation(new Translation2d(
+                  -MathUtil.applyDeadband(m_driverController.getLeftY(), OIConstants.kDriveDeadband),
+                  -MathUtil.applyDeadband(m_driverController.getLeftX(), OIConstants.kDriveDeadband)))
+                  .times(SwerveConstants.kMaxSpeedMetersPerSecond);
+
+              boolean isFieldRelative = fieldRelativeSupp.getAsBoolean();
+              if (isFieldRelative) {
+                var alliance = DriverStation.getAlliance();
+                if (alliance.isPresent() && alliance.get() == DriverStation.Alliance.Red) {
+                  translation = translation.rotateBy(Rotation2d.fromDegrees(180));
+                }
+              }
+
+    return translation;
+
+      
   }
 
   public Command getAutonomousCommand() {

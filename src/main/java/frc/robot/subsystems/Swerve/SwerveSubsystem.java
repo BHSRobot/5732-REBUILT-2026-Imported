@@ -318,7 +318,7 @@ public class SwerveSubsystem extends SubsystemBase {
   public void configurePigeon() {
     Pigeon2 pigeon = (Pigeon2) m_swerveDrive.getGyro().getIMU();
     Pigeon2Configuration pigeonConfig = new Pigeon2Configuration();
-    pigeonConfig.MountPose.MountPoseYaw = 90.0;
+    pigeonConfig.MountPose.MountPoseYaw = 0.0;
     pigeonConfig.MountPose.MountPosePitch = 0.0;
     pigeonConfig.MountPose.MountPoseRoll = 0.0;
     pigeon.getConfigurator().apply(pigeonConfig);
@@ -424,13 +424,8 @@ public class SwerveSubsystem extends SubsystemBase {
     return new PathPlannerAuto(pathName);
   }
 
-  /*
-   * Command to aim the robot chassis at target once apriltag detected
-   */
-  public Command aimChassisAtTarget() {
-    return new ChassisVisionAim(null, null);
-
-  }
+  
+  
 
   /**
    * Use PathPlanner Path finding to go to a point on the field.
@@ -514,6 +509,10 @@ public class SwerveSubsystem extends SubsystemBase {
   public Command centerModulesCommand() {
     return run(() -> Arrays.asList(m_swerveDrive.getModules())
         .forEach(it -> it.setAngle(0.0)));
+  }
+
+  public void setTargetAngle(Rotation2d rotation) {
+    
   }
 
   public Command defensiveXCommand() {

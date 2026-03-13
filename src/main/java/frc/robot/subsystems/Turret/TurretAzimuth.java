@@ -64,8 +64,7 @@ public class TurretAzimuth extends SubsystemBase {
 
 
     public boolean isAtTargetAngle() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isAtTargetAngle'");
+        return Math.abs(m_targetAngle - m_currentAngle) <= 1.0;
     }
 
 

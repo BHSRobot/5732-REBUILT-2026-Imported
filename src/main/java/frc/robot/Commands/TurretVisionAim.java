@@ -31,6 +31,7 @@ public class TurretVisionAim extends Command {
 
         
         addRequirements(m_turretAngle, m_turretShooter, m_indexer); 
+        withName("aimturretandshoot");
     }
 
     @Override
@@ -57,7 +58,7 @@ public class TurretVisionAim extends Command {
         // apply twist to get where the robot WILL be when the ball actually fires
         Pose2d predictedPose = currentPose.exp(twist);
         Translation2d robotLocation = predictedPose.getTranslation();
-
+        
         Translation2d fieldRelativeVelocity = new Translation2d(
             speeds.vxMetersPerSecond, 
             speeds.vyMetersPerSecond
