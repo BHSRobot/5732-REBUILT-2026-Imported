@@ -173,15 +173,19 @@ public class RobotContainer {
     m_driverController.leftBumper().whileTrue(
         m_intake.intakeCommand());
 
-    
-    //m_driverController.rightTrigger().whileTrue(
-    //    new ChassisVisionAim(m_driveBase, m_shooter, m_indexer, () -> getAllianceBasedTranslation().getX(),
-    //        () -> getAllianceBasedTranslation().getY()));
+    // m_driverController.rightTrigger().whileTrue(
+    // new ChassisVisionAim(m_driveBase, m_shooter, m_indexer, () ->
+    // getAllianceBasedTranslation().getX(),
+    // () -> getAllianceBasedTranslation().getY()));
 
     m_driverController.y().whileTrue(
         m_intake.testExtend());
     m_driverController.b().whileTrue(
         m_intake.testRetract());
+
+    m_driverController.rightTrigger().whileTrue(
+        new SequentialCommandGroup(
+            new RunCommand(() -> m_shooter.justShootBruh()).andThen(() -> m_shooter.stop())));
 
     // ==== OPERATOR BINDS ====
     // HOLD A to aim the limelight at your target
@@ -259,21 +263,19 @@ public class RobotContainer {
 
   public Command getAutonomousCommand() {
 
-   // try {
-      // Load the path you want to follow using its name in the GUI
-     // PathPlannerPath path = PathPlannerPath.fromPathFile("Rush");
+    // try {
+    // Load the path you want to follow using its name in the GUI
+    // PathPlannerPath path = PathPlannerPath.fromPathFile("Rush");
 
-      // Create a path following command using AutoBuilder. This will also trigger
-      // event markers.
-    //  return AutoBuilder.followPath(path);
-   // } catch (Exception e) {
-  //    DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());
+    // Create a path following command using AutoBuilder. This will also trigger
+    // event markers.
+    // return AutoBuilder.followPath(path);
+    // } catch (Exception e) {
+    // DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());
     return Commands.none();
-    
-  }
-    // return Commands.print("No autonomous command configured");
 
-  
+  }
+  // return Commands.print("No autonomous command configured");
 
   public void setupDriverTab() {
 

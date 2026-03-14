@@ -199,7 +199,7 @@ public class TurretShooter extends SubsystemBase {
     }
 
     // dumb way for first comp
-    public void justShootBruh(double distanceToTarget) {
+    public void justShootBruh() {
         if (!isTuning && m_currentState == ShooterState.AIMING) {
             
             setFlywheelVoltage(12);
