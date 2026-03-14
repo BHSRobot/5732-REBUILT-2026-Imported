@@ -174,9 +174,9 @@ public class RobotContainer {
     m_driverController.leftTrigger().whileTrue(
         m_intake.intakeCommand());
 
-    m_driverController.rightTrigger().whileTrue(
-        new ChassisVisionAim(m_driveBase, m_shooter, m_indexer, () -> getAllianceBasedTranslation().getX(),
-            () -> getAllianceBasedTranslation().getY()));
+    //m_driverController.rightTrigger().whileTrue(
+    //    new ChassisVisionAim(m_driveBase, m_shooter, m_indexer, () -> getAllianceBasedTranslation().getX(),
+    //        () -> getAllianceBasedTranslation().getY()));
 
     m_driverController.y().whileTrue(
         m_intake.testExtend());
@@ -259,21 +259,21 @@ public class RobotContainer {
 
   public Command getAutonomousCommand() {
 
-    try {
+   // try {
       // Load the path you want to follow using its name in the GUI
-      PathPlannerPath path = PathPlannerPath.fromPathFile("Rush");
+     // PathPlannerPath path = PathPlannerPath.fromPathFile("Rush");
 
       // Create a path following command using AutoBuilder. This will also trigger
       // event markers.
-      return AutoBuilder.followPath(path);
-    } catch (Exception e) {
-      DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());
-      return Commands.none();
-    }
-
+    //  return AutoBuilder.followPath(path);
+   // } catch (Exception e) {
+  //    DriverStation.reportError("Big oops: " + e.getMessage(), e.getStackTrace());
+    return Commands.none();
+    
+  }
     // return Commands.print("No autonomous command configured");
 
-  }
+  
 
   public void setupDriverTab() {
 
