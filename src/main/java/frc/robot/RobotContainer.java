@@ -115,7 +115,7 @@ public class RobotContainer {
     // Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
     m_indexer = new Indexer();
     // change when robot is built
-    m_shooter = null;
+    m_shooter = new TurretShooter();
 
     auto = new Autos();
 
