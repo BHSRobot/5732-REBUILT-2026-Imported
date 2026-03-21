@@ -1,6 +1,8 @@
 package frc.robot.subsystems.Intake;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import frc.robot.utils.Constants;
+import frc.robot.utils.LoggedTunableNumber;
+
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
@@ -17,6 +19,8 @@ public class Intake extends SubsystemBase {
     public enum IntakeExtensionState { EXTENDING, RETRACTING, DISABLED }
     private IntakeState intakeState = IntakeState.DISABLED;
     private IntakeExtensionState extensionState = IntakeExtensionState.DISABLED;
+    public static final LoggedTunableNumber PIntakeExtension = new LoggedTunableNumber("Tuning/IntakeExtension/kP");
+    public static final LoggedTunableNumber DIntakeExtension = new LoggedTunableNumber("Tuning/IntakeExtension/kD");
     
     public Intake(IntakeIO io) {
         this.io = io;
@@ -24,6 +28,8 @@ public class Intake extends SubsystemBase {
 
     @Override
     public void periodic() {
+        
+
         io.updateInputs(inputs); 
         //Logger.processInputs("Intake", (LoggableInputs) inputs); // If using AdvantageKit
 
@@ -47,6 +53,8 @@ public class Intake extends SubsystemBase {
                 //io.setExtended(true);
                 
             }
+
+
         }
 
         switch (extensionState) {
@@ -102,6 +110,8 @@ public class Intake extends SubsystemBase {
         );
 
     }
+
+    
 
     
 }

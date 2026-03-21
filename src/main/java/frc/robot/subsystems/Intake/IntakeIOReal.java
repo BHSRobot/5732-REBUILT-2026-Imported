@@ -1,11 +1,14 @@
 package frc.robot.subsystems.Intake;
 
 import com.revrobotics.AbsoluteEncoder;
+import com.revrobotics.PersistMode;
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.ResetMode;
 import com.revrobotics.spark.SparkClosedLoopController;
 import com.revrobotics.spark.SparkFlex;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkBase.ControlType;
 
 import frc.robot.utils.Constants;
@@ -67,6 +70,11 @@ public class IntakeIOReal implements IntakeIO {
     }
 
     @Override
+    public boolean getExtended() {
+        return intakeExtendClosedLoop.isAtSetpoint();
+    }
+
+    @Override
     public void testExtend() {
         intakeExtensionMotor.set(.15);
     }
@@ -78,6 +86,18 @@ public class IntakeIOReal implements IntakeIO {
     @Override
     public void testSetDisabled() {
         intakeExtensionMotor.setVoltage(0);
+    }
+    @Override
+    public void updateExtensionPID(double kP, double kD) {
+        // Create a config object to apply the new PID values
+        SparkMaxConfig config = new SparkMaxConfig();
+        
+        // Apply the new P and D values. (Assuming you are using the integrated encoder)
+        config.closedLoop.pid(kP, 0.0, kD);
+        
+        // Apply the config to the motor. 
+        // Using kNoPersistParameters because we don't want to burn to flash every periodic loop
+        intakeExtensionMotor.configure(config, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
     }
     
 }

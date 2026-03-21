@@ -74,8 +74,18 @@ public class LoggedTunableNumber implements DoubleSupplier {
   public double get() {
     if (!hasDefault) {
       return 0.0;
+    } 
+
+    boolean isTuningMode = SmartDashboard.getBoolean("TuningModeActive", false) && !Constants.disableHAL;
+
+    if (isTuningMode) {
+      
+      if (dashboardNumber == null) {
+        dashboardNumber = new LoggedNetworkNumber(key, defaultValue);
+      }
+      return dashboardNumber.get();
     } else {
-      return SmartDashboard.getBoolean("TuningModeActive", false) && !Constants.disableHAL ? dashboardNumber.get() : defaultValue;
+      return defaultValue;
     }
   }
 

@@ -110,9 +110,9 @@ public class RobotContainer {
       m_intake = new Intake(new IntakeIOReal());
     }
     // change when robot is built
-    m_turretAzimuth = null;
-    // m_driveBase.setTurretAngleSupplier(() ->
-    // Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
+    m_turretAzimuth = new TurretAzimuth();
+    m_driveBase.setTurretAngleSupplier(() ->
+    Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
     m_indexer = new Indexer();
     // change when robot is built
     m_shooter = new TurretShooter();

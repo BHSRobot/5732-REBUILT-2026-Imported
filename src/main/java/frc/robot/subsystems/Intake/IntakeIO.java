@@ -26,6 +26,9 @@ public interface IntakeIO {
     /** Run the extension to the angle required for full extension */
     public default void setExtended(boolean extended) {}
 
+    public default boolean getExtended() {
+            return false;
+    }
 
 
     // raw motor speed methods (testing before pids are tuned and possibly using for comp if needed)
@@ -36,6 +39,9 @@ public interface IntakeIO {
 
     public default void testSetDisabled() {}
 
+
+    /** Updates the PID constants for the extension closed-loop controller */
+    public default void updateExtensionPID(double kP, double kD) {}
 
     
 }
