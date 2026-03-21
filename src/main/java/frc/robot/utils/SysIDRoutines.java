@@ -33,9 +33,13 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.units.Measure;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj.sysid.SysIdRoutineLog;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.Subsystem;
 
 public class SysIDRoutines {
   private SwerveDrive m_swerveDrive;
@@ -46,6 +50,10 @@ public class SysIDRoutines {
   public final SysIdRoutine angleSysIdRoutine;
   private SysIdRoutine.Config driveConfig;
   public final SysIdRoutine driveSysIdRoutine;
+  private final SysIdRoutine headingSysIdRoutine;
+  private final SysIdRoutine.Config headingConfig;
+
+  private double currentHeadingVolts = 0.0;
 
   
   // modules in an array 
@@ -97,9 +105,26 @@ public class SysIDRoutines {
     /**
      * End of Drive Motor SysId Routine Setup
      */
-    /**
-     * End of Drive Motor SysId Routine Setup
-     */
+
+     
+    /** Heading (Rotational) Routine Setup */
+    headingConfig = new SysIdRoutine.Config(
+        Volts.of(1.0).per(Second),
+        Volts.of(4), // Start low; Krakens spin the chassis FAST
+        edu.wpi.first.units.Units.Seconds.of(5),
+        (state) -> Logger.recordOutput("sysid-test-state-heading:", state.toString()));
+
+    headingSysIdRoutine = new SysIdRoutine(
+      headingConfig,
+      new SysIdRoutine.Mechanism(
+          (measure) -> {
+              currentHeadingVolts = measure.in(Volts); // Store the commanded voltage
+              setHeadingVoltage(currentHeadingVolts);
+          },
+          this::logHeading,
+          m_swerveSubsystem));
+
+
 
   }
 
@@ -260,4 +285,62 @@ public class SysIDRoutines {
         .andThen(driveSysIdRoutine.quasistatic(direction))
         .withName("sysid quasistatic drive command");
   }
+
+  
+  
+  /**
+   * Sets modules to a rotation "X" pattern and applies voltage to spin the chassis.
+   */
+  public void setHeadingVoltage(double volts) {
+    ChassisSpeeds rot = new ChassisSpeeds(0, 0, 1.0);
+    SwerveModuleState[] states = m_swerveDrive.kinematics.toSwerveModuleStates(rot);
+
+    for (int i = 0; i < modules.length; i++) {
+      
+      SwerveModuleState optimized = SwerveModuleState.optimize(states[i], modules[i].getState().angle);
+
+      
+      modules[i].setAngle(optimized.angle.getDegrees());
+
+      
+      double appliedVolts = volts * Math.signum(optimized.speedMetersPerSecond);
+      ((TalonFX) modules[i].getDriveMotor().getMotor()).setVoltage(appliedVolts);
+    }
+  }
+
+  public void logHeading(SysIdRoutineLog log) {
+    // For heading, we log the Robot's Yaw and Angular Velocity from the Gyro
+    log.motor("heading-chassis")
+        .voltage(Volts.of(modules[0].getDriveMotor().getVoltage()))
+        .angularPosition(Radians.of(m_swerveDrive.getYaw().getRadians()))
+        .angularVelocity(RadiansPerSecond.of(m_swerveDrive.getRobotVelocity().omegaRadiansPerSecond));
+  }
+
+  // --- COMMAND FACTORIES ---
+
+  public Command sysIdHeadingQuasi(SysIdRoutine.Direction direction) {
+    return Commands.runOnce(this::prepareDriveMotorsForSysId)
+        .andThen(headingSysIdRoutine.quasistatic(direction))
+        .withName("sysid quasistatic heading");
+  }
+
+  public Command sysIdHeadingDynam(SysIdRoutine.Direction direction) {
+    return Commands.runOnce(this::prepareDriveMotorsForSysId)
+        .andThen(headingSysIdRoutine.dynamic(direction))
+        .withName("sysid dynamic heading");
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

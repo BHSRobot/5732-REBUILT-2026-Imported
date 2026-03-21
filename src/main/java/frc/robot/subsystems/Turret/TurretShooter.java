@@ -49,21 +49,21 @@ public class TurretShooter extends SubsystemBase {
     private final RelativeEncoder m_shooterEncoder;
     private final RelativeEncoder m_shooterTwoEncoder;
     private final SparkClosedLoopController m_shooterClosedLoop;
-    //private final SparkMax m_hoodMotor;
-    //private final RelativeEncoder m_hoodEncoder;
-    //private final SparkClosedLoopController m_turretHoodClosedLoop;
+    private final SparkMax m_hoodMotor;
+    private final RelativeEncoder m_hoodEncoder;
+    private final SparkClosedLoopController m_turretHoodClosedLoop;
     private boolean isTuning;
     private boolean sysidActive = false;
 
-    public static final LoggedTunableNumber PTurretHood = new LoggedTunableNumber("TurretHood/kP");
-    public static final LoggedTunableNumber DTurretHood = new LoggedTunableNumber("TurretHood/kD");
+    public static final LoggedTunableNumber PTurretHood = new LoggedTunableNumber("Tuning/TurretHood/kP");
+    public static final LoggedTunableNumber DTurretHood = new LoggedTunableNumber("Tuning/TurretHood/kD");
 
     private final InterpolatingDoubleTreeMap rpmTable = new InterpolatingDoubleTreeMap();
     private final InterpolatingDoubleTreeMap hoodTable = new InterpolatingDoubleTreeMap();
     private final InterpolatingDoubleTreeMap tofTable = new InterpolatingDoubleTreeMap();
 
-    private static final LoggedTunableNumber tuningRpm = new LoggedTunableNumber("Tuning/Shooter/Target RPM", 2000.0);
-    private static final LoggedTunableNumber tuningHood = new LoggedTunableNumber("Tuning/Shooter/Target Hood", 20.0);
+    private static final LoggedTunableNumber tuningRpm = new LoggedTunableNumber("Tuning/Shooter/TargetRPM", 2000.0);
+    private static final LoggedTunableNumber tuningHood = new LoggedTunableNumber("Tuning/Shooter/TargetHood", 20.0);
 
     public TurretShooter() {
         PTurretHood.initDefault(TurretConstants.kPTurretHood);
@@ -77,11 +77,11 @@ public class TurretShooter extends SubsystemBase {
         m_shooterFlexLead.configure(Configs.TurretConfigs.shooterConfig, ResetMode.kNoResetSafeParameters,
                 PersistMode.kPersistParameters);
         m_shooterClosedLoop = m_shooterFlexLead.getClosedLoopController();
-        //m_hoodMotor = new SparkMax(MechConstants.kTurrHoodID, MotorType.kBrushless);
-        //m_hoodEncoder = m_hoodMotor.getEncoder();
-        // m_hoodMotor.configure(Configs.TurretConfigs.hoodConfig, ResetMode.kNoResetSafeParameters,
-        //         PersistMode.kPersistParameters);
-        // m_turretHoodClosedLoop = m_hoodMotor.getClosedLoopController();
+        m_hoodMotor = new SparkMax(MechConstants.kTurrHoodID, MotorType.kBrushless);
+        m_hoodEncoder = m_hoodMotor.getEncoder();
+        m_hoodMotor.configure(Configs.TurretConfigs.hoodConfig, ResetMode.kNoResetSafeParameters,
+                PersistMode.kPersistParameters);
+        m_turretHoodClosedLoop = m_hoodMotor.getClosedLoopController();
         populateLookupTables();
 
     }
@@ -99,7 +99,7 @@ public class TurretShooter extends SubsystemBase {
             if (PTurretHood.hasChanged(hashCode()) || DTurretHood.hasChanged(hashCode())) {
                 SparkMaxConfig updateConfig = new SparkMaxConfig();
                 updateConfig.closedLoop.pid(PTurretHood.get(), 0.0, DTurretHood.get());
-                //m_hoodMotor.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+                m_hoodMotor.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
             }
 
             if (tuningRpm.hasChanged(hashCode())) {
@@ -109,7 +109,7 @@ public class TurretShooter extends SubsystemBase {
                 setTargetHoodAngle(tuningHood.get());
             }
         }
-        //m_currentHoodAngle = m_hoodEncoder.getPosition();
+        m_currentHoodAngle = m_hoodEncoder.getPosition();
         m_currentVelocity = m_shooterEncoder.getVelocity();
 
         if (m_currentState == ShooterState.DISABLED) {
@@ -232,7 +232,7 @@ public class TurretShooter extends SubsystemBase {
 
     public void setTargetHoodAngle(double angle) {
         m_targetHoodAngle = angle;
-        //m_turretHoodClosedLoop.setSetpoint(angle, ControlType.kMAXMotionPositionControl);
+        m_turretHoodClosedLoop.setSetpoint(angle, ControlType.kMAXMotionPositionControl);
     }
 
     public void setFlywheelRPM(double rpm) {

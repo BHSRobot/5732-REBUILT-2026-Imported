@@ -30,7 +30,6 @@ public class Hopper extends SubsystemBase {
     private final SparkClosedLoopController m_hoopClosedLoop;
     // Live tuning of PD Controller
     private static final LoggedTunableNumber kHopperP = new LoggedTunableNumber("Hopper/kP");
-    
     private static final LoggedTunableNumber kHopperD = new LoggedTunableNumber("Hopper/kD");
 
     // Live tuning of feedforward constants
@@ -45,8 +44,7 @@ public class Hopper extends SubsystemBase {
     private double m_targetHeight;
 
     public Hopper() {
-        Logger.recordOutput("Hopper/currentHeight", m_currentHeight);
-        Logger.recordOutput("Hopper/targetHeight", m_targetHeight);
+        
         m_mainVortex = new SparkFlex(Constants.MechConstants.kHoppLenID, MotorType.kBrushless);
         m_hoppEncoder = m_mainVortex.getAbsoluteEncoder();
         m_hoopClosedLoop = m_mainVortex.getClosedLoopController();
