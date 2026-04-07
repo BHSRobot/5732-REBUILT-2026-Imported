@@ -127,6 +127,8 @@ public class SwerveSubsystem extends SubsystemBase {
 
   private double m_lastTurretAngleDegrees = -999.0;
 
+  private double m_lastLogTime;
+
   public void setSysIdActive(boolean active) {
     m_sysIdActive = active;
   }
@@ -218,6 +220,7 @@ public class SwerveSubsystem extends SubsystemBase {
 
   @Override
   public void periodic() {
+    double currentTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
     if (!m_sysIdActive) {
 
       // --- Essential Telemetry and Odometry ---
@@ -226,9 +229,13 @@ public class SwerveSubsystem extends SubsystemBase {
       updateVisionOdometry();
       // m_field.setRobotPose(getPose());
 
+      if (currentTime - m_lastLogTime >= 0.1) {
+
       Logger.recordOutput("Drive/Pose", getPose());
 
       Logger.recordOutput("Drive/Velocity/RobotRelative", getRobotVelocity());
+      Logger.recordOutput("Drive/ModuleStates/Actual", m_swerveDrive.getStates());
+
       linearVelocity = Math
           .sqrt(Math.pow(getRobotVelocity().vxMetersPerSecond, 2) + Math.pow(getRobotVelocity().vyMetersPerSecond, 2));
       SmartDashboard.putNumber("Drive/linearVelocity/RobotRelative", linearVelocity);
@@ -237,39 +244,22 @@ public class SwerveSubsystem extends SubsystemBase {
 
       // --- Swerve Internal State ---
 
-      Logger.recordOutput("Drive/ModuleStates/Actual", m_swerveDrive.getStates());
+      
 
-      // --- FIX THIS SOON SO YOU CAN COMPARE SETPOINTS TO MEASURED ANGLES AND
-      // VELOCITY - bushi ----
-
-      // Logger.recordOutput("Drive/ModuleStates/Desired", swerveDrive.getStates());
-
-      Logger.recordOutput("Drive/ModulePositions", m_swerveDrive.getModulePositions());
-
-      // --- Sensors ---
-      Logger.recordOutput("Drive/Gyro/Yaw", m_swerveDrive.getYaw());
-      Logger.recordOutput("Drive/Gyro/Pitch", m_swerveDrive.getPitch()); // Useful for "is robot tipped?"
+    
 
       // --- Vision ---
       // Adding a check to see if the robot actually sees a target in the front
       // limelight
-      boolean turretHasTarget = LimelightHelpers.getTV(Vision.kturretlime);
-      boolean chassisHasTarget = LimelightHelpers.getTV(Vision.kchassislime);
-      Logger.recordOutput("Vision/FrontHasTarget", turretHasTarget);
-      if (turretHasTarget) {
-        Logger.recordOutput("Vision/FrontLimelightTY", LimelightHelpers.getTY(Vision.kturretlime));
-        SmartDashboard.putNumber("Vision/FrontLimelightTY", LimelightHelpers.getTY(Vision.kturretlime));
-        Logger.recordOutput("Vision/FrontLimelightTX", LimelightHelpers.getTX(Vision.kturretlime));
-        SmartDashboard.putNumber("Vision/FrontLimelightTX", LimelightHelpers.getTX(Vision.kturretlime));
-      }
-      if (chassisHasTarget) {
-        Logger.recordOutput("Vision/chassisLimelightTY", LimelightHelpers.getTY(Vision.kchassislime));
-        SmartDashboard.putNumber("Vision/chassisLimelightTY", LimelightHelpers.getTY(Vision.kchassislime));
-        Logger.recordOutput("Vision/chassisLimelightTX", LimelightHelpers.getTX(Vision.kchassislime));
-        SmartDashboard.putNumber("Vision/chassisLimelightTX", LimelightHelpers.getTX(Vision.kchassislime));
-      }
+      boolean leftCamHasTarget = LimelightHelpers.getTV(Vision.kleftCam);
+      boolean rightCamHasTarget = LimelightHelpers.getTV(Vision.krightCam);
 
-      // updates odometry for use in advantagescope
+      Logger.recordOutput("Vision/leftCamHasTarget", leftCamHasTarget);
+      Logger.recordOutput("Vision/rightCamHasTarget", rightCamHasTarget);
+      
+
+        m_lastLogTime = currentTime;
+      }
     }
 
   }
@@ -328,22 +318,22 @@ public class SwerveSubsystem extends SubsystemBase {
 
   public void configureLimelight() {
     LimelightHelpers.setCameraPose_RobotSpace(
-      Vision.kchassislime, 
-      Constants.Vision.CHASSIS_CAMERA_FORWARD_OFFSET, 
-      Constants.Vision.CHASSIS_CAMERA_SIDE_OFFSET, 
-      Constants.Vision.CHASSIS_CAMERA_Z_HEIGHT, 
-      Constants.Vision.CHASSIS_CAMERA_ROLL, 
-      Constants.Vision.CHASSIS_CAMERA_PITCH, 
-      Constants.Vision.CHASSIS_CAMERA_YAW
+      Vision.kleftCam, 
+      Constants.Vision.leftCam_CAMERA_FORWARD_OFFSET, 
+      Constants.Vision.leftCam_CAMERA_SIDE_OFFSET, 
+      Constants.Vision.leftCam_CAMERA_Z_HEIGHT, 
+      Constants.Vision.leftCam_CAMERA_ROLL, 
+      Constants.Vision.leftCam_CAMERA_PITCH, 
+      Constants.Vision.leftCam_CAMERA_YAW
     );
     LimelightHelpers.setCameraPose_RobotSpace(
-      Vision.kturretlime, 
-      Constants.Vision.CHASSISTWO_CENTER_FORWARD_OFFSET, 
-      Constants.Vision.CHASSISTWO_CENTER_SIDE_OFFSET, 
-      Constants.Vision.STATIC_Z_HEIGHT, 
-      Constants.Vision.STATIC_CAMERA_ROLL, 
-      Constants.Vision.STATIC_CAMERA_PITCH, 
-      Constants.Vision.STATIC_CAMERA_YAW
+      Vision.krightCam, 
+      Constants.Vision.rightCam_CENTER_FORWARD_OFFSET, 
+      Constants.Vision.rightCam_CENTER_SIDE_OFFSET, 
+      Constants.Vision.rightCam_Z_HEIGHT, 
+      Constants.Vision.rightCam_CAMERA_ROLL, 
+      Constants.Vision.rightCam_CAMERA_PITCH, 
+      Constants.Vision.rightCam_CAMERA_YAW
     );
     
 
@@ -683,17 +673,17 @@ public class SwerveSubsystem extends SubsystemBase {
    */
   public void resetOdometry(Pose2d initialHolonomicPose) {
     m_swerveDrive.resetOdometry(initialHolonomicPose);
-    // Front Limelight
-    if (LimelightHelpers.getTV(Constants.Vision.kturretlime)) {
+    // first Limelight
+    if (LimelightHelpers.getTV(Constants.Vision.kleftCam)) {
       m_swerveDrive.addVisionMeasurement(
-          LimelightHelpers.getBotPose2d_wpiBlue(Constants.Vision.kturretlime),
+          LimelightHelpers.getBotPose2d_wpiBlue(Constants.Vision.kleftCam),
           Timer.getFPGATimestamp());
     }
 
-    // Back Limelight
-    if (LimelightHelpers.getTV(Constants.Vision.kchassislime)) {
+    // second Limelight
+    if (LimelightHelpers.getTV(Constants.Vision.krightCam)) {
       m_swerveDrive.addVisionMeasurement(
-          LimelightHelpers.getBotPose2d_wpiBlue(Constants.Vision.kchassislime),
+          LimelightHelpers.getBotPose2d_wpiBlue(Constants.Vision.krightCam),
           Timer.getFPGATimestamp());
     }
   }
@@ -709,46 +699,18 @@ public class SwerveSubsystem extends SubsystemBase {
     double angularVel = Units.radiansToDegrees(m_swerveDrive.getRobotVelocity().omegaRadiansPerSecond);
     
     // Process each camera using a helper method
-    processLimelight(Vision.kturretlime, robotYaw, angularVel);
-    processLimelight(Vision.kchassislime, robotYaw, angularVel);
+    processLimelight(Vision.krightCam, robotYaw, angularVel);
+    processLimelight(Vision.kleftCam, robotYaw, angularVel);
   }
 
-  /**
-   * Updates the Limelight's knowledge of where it is physically located on the robot.
-   * Call this periodically before fetching the MegaTag2 pose.
-   * * @param turretAngle The current Rotation2d of the turret relative to the chassis forward.
-   */
-
-  public void updateTurretCameraExtrinsics(Rotation2d turretAngle) {
-    // Only send the update if the turret moved more than 1 degree
-    if (Math.abs(turretAngle.getDegrees() - m_lastTurretAngleDegrees) < 1.0) {
-        return; 
-    }
-    
-    m_lastTurretAngleDegrees = turretAngle.getDegrees();
-
-    Translation2d cameraRelativeToTurret = new Translation2d(Constants.Vision.CAMERA_RADIUS_FROM_TURRET, 0.0);
-    Translation2d rotatedCameraOffset = cameraRelativeToTurret.rotateBy(turretAngle);
-    
-    double finalCameraForward = Constants.Vision.TURRET_CENTER_FORWARD_OFFSET + rotatedCameraOffset.getX();
-    double finalCameraSide = Constants.Vision.TURRET_CENTER_SIDE_OFFSET + rotatedCameraOffset.getY();
-    double finalCameraYaw = turretAngle.getDegrees();
-
-    LimelightHelpers.setCameraPose_RobotSpace(
-      Vision.kturretlime, 
-      finalCameraForward, finalCameraSide, Constants.Vision.STATIC_Z_HEIGHT, 
-      Constants.Vision.STATIC_CAMERA_ROLL, Constants.Vision.STATIC_CAMERA_PITCH, finalCameraYaw
-    );
-}
+  
 
   /**
    * Helper method to process a single Limelight's data.
    */
   private void processLimelight(String cameraName, double yaw, double velocity) {
     
-    // if (cameraName.equals(Vision.kturretlime)) {
-    //     updateTurretCameraExtrinsics(m_turretAngleSupplier.get());
-    // }
+    
 
     
     LimelightHelpers.SetRobotOrientation(cameraName, yaw, velocity, 0.0, 0.0, 0.0, 0.0);

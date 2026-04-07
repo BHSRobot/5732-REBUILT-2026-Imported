@@ -9,6 +9,7 @@ import com.revrobotics.spark.config.SparkBaseConfig;
 import com.revrobotics.spark.config.SparkFlexConfig;
 import com.revrobotics.spark.config.SparkMaxConfig;
 
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.utils.Configs;
@@ -33,8 +34,8 @@ public class TurretShooter extends SubsystemBase {
 
     public enum ShooterState {
         AIMING,
+        SHOOTING,
         DISABLED
-
     }
 
     private ShooterState m_currentState = ShooterState.DISABLED;
@@ -43,6 +44,7 @@ public class TurretShooter extends SubsystemBase {
     private double m_targetVelocity;
     private double m_currentHoodAngle;
     private double m_targetHoodAngle;
+    private double m_lastLogTime = 0;
 
     private final SparkFlex m_shooterFlexLead;
     private final SparkFlex m_shooterFlexFollow;
@@ -83,55 +85,71 @@ public class TurretShooter extends SubsystemBase {
                 PersistMode.kPersistParameters);
         m_turretHoodClosedLoop = m_hoodMotor.getClosedLoopController();
         populateLookupTables();
-
+        isTuning = SmartDashboard.getBoolean("TuningModeActive", false);
     }
 
     @Override
     public void periodic() {
 
-        isTuning = SmartDashboard.getBoolean("TuningModeActive", false);
-        Logger.recordOutput("TurretHood/CurrentAngle", m_currentHoodAngle);
-        Logger.recordOutput("TurretHood/targetAngle", m_targetHoodAngle);
-        Logger.recordOutput("TurretFlyWheel/CurrentRPM", m_currentVelocity);
-        Logger.recordOutput("TurretFlywheel/TargetRPM", m_targetVelocity);
+        handleTuning();
+        double currentTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
 
-        if (isTuning) {
-            if (PTurretHood.hasChanged(hashCode()) || DTurretHood.hasChanged(hashCode())) {
-                SparkMaxConfig updateConfig = new SparkMaxConfig();
-                updateConfig.closedLoop.pid(PTurretHood.get(), 0.0, DTurretHood.get());
-                m_hoodMotor.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-            }
-
-            if (tuningRpm.hasChanged(hashCode())) {
-                setFlywheelRPM(tuningRpm.get());
-            }
-            if (tuningHood.hasChanged(hashCode())) {
-                setTargetHoodAngle(tuningHood.get());
-            }
+        if (currentTime - m_lastLogTime >= 0.1) { // log every 100ms
+            Logger.recordOutput("TurretHood/CurrentAngle", m_currentHoodAngle);
+            Logger.recordOutput("TurretHood/targetAngle", m_targetHoodAngle);
+            Logger.recordOutput("TurretFlyWheel/CurrentRPM", m_currentVelocity);
+            Logger.recordOutput("TurretFlywheel/TargetRPM", m_targetVelocity);
+            m_lastLogTime = currentTime;
         }
+
         m_currentHoodAngle = m_hoodEncoder.getPosition();
         m_currentVelocity = m_shooterEncoder.getVelocity();
 
-        if (m_currentState == ShooterState.DISABLED) {
-            m_shooterFlexFollow.set(0);
-            m_shooterFlexLead.set(0);
-            setTargetHoodAngle(15);
-        }
-        
-
     }
 
-    // Burn flash after configuration
+    
+
+    private void handleTuning() {
+        boolean isTuningModeActive = SmartDashboard.getBoolean("TuningModeActive", false);
+        if (isTuning != isTuningModeActive) {
+            isTuning = isTuningModeActive;
+        }
+
+        if (!isTuning) {
+            return;
+        }
+
+        if (PTurretHood.hasChanged(hashCode()) || DTurretHood.hasChanged(hashCode())) {
+            SparkMaxConfig updateConfig = new SparkMaxConfig();
+
+            updateConfig.closedLoop.pid(PTurretHood.get(), 0.0, DTurretHood.get());
+            m_hoodMotor.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
+
+        }
+
+        if (tuningRpm.hasChanged(hashCode())) {
+            setFlywheelRPM(tuningRpm.get());
+        }
+        if (tuningHood.hasChanged(hashCode())) {
+            setTargetHoodAngle(tuningHood.get());
+        }
+
+    }
 
     // == state modifiers ==
     public void setAiming() {
         m_currentState = ShooterState.AIMING;
     }
-    public void stop() {
-        m_currentState = ShooterState.DISABLED;
-    }
 
-    
+    public void stop() {
+        if (m_currentState != ShooterState.DISABLED) {
+            m_shooterFlexFollow.set(0);
+            m_shooterFlexLead.set(0);
+            setTargetHoodAngle(15);
+            m_currentState = ShooterState.DISABLED;
+        }
+
+    }
 
     private void prepShooterMotors() {
         SparkMaxConfig tempconfig = new SparkMaxConfig();
@@ -153,8 +171,7 @@ public class TurretShooter extends SubsystemBase {
     public void setupSysId() {
         SysIdRoutine sysIdRoutine = new SysIdRoutine(
                 new SysIdRoutine.Config(
-                // Use default config (ramp rate, step voltage, timeout)
-                // You can override these here if the defaults are too aggressive
+                    // default config 
                 ),
                 new SysIdRoutine.Mechanism(
 
@@ -196,11 +213,20 @@ public class TurretShooter extends SubsystemBase {
         }
     }
 
-    // dumb way for first comp
-    public void justShootBruh() {
-        m_shooterFlexLead.set(1);
-        m_shooterFlexFollow.set(-1);
-        
+    /**
+     * A Command factory that handles revving the shooter and updating the state.
+     */
+    public Command simpleShootCommand() {
+        return this.startEnd(
+                () -> {
+                    m_currentState = ShooterState.SHOOTING;
+                    m_shooterFlexLead.set(1.0);
+                    m_shooterFlexFollow.set(-1.0);
+                },
+
+                () -> {
+                    stop();
+                }).withName("DumbShoot");
     }
 
     /**
@@ -210,7 +236,7 @@ public class TurretShooter extends SubsystemBase {
      * @return Time of flight in seconds
      */
     public double getEstimatedTimeOfFlight(double distanceToTarget) {
-        // Return 0.0 if the table is empty to prevent crashes during setup
+        // return 0.0 if the table is empty to prevent crashes during setup
         Double estimatedTOF = tofTable.get(distanceToTarget);
 
         return (estimatedTOF == null) ? 0.0 : estimatedTOF;
@@ -239,6 +265,7 @@ public class TurretShooter extends SubsystemBase {
         m_targetVelocity = rpm;
         m_shooterClosedLoop.setSetpoint(m_targetVelocity, ControlType.kMAXMotionVelocityControl);
     }
+
     public void setFlywheelVoltage(double volts) {
         m_shooterFlexLead.setVoltage(volts);
     }

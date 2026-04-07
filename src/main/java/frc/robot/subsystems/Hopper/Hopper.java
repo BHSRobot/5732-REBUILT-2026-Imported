@@ -1,4 +1,5 @@
 package frc.robot.subsystems.Hopper;
+
 import frc.robot.subsystems.Hopper.HopperConstants;
 import frc.robot.utils.LoggedTunableNumber;
 import frc.robot.utils.Configs;
@@ -19,11 +20,6 @@ import com.revrobotics.PersistMode;
 
 import org.littletonrobotics.junction.Logger;
 
-
-
-
-
-
 public class Hopper extends SubsystemBase {
     private final SparkFlex m_mainVortex;
     private final AbsoluteEncoder m_hoppEncoder;
@@ -34,44 +30,42 @@ public class Hopper extends SubsystemBase {
 
     // Live tuning of feedforward constants
     // pretty sure sysid will handle this
-    // private static final LoggedTunableNumber kHopperS = new LoggedTunableNumber("Hopper/kS");
-    // private static final LoggedTunableNumber kHopperG = new LoggedTunableNumber("Hopper/kG");
-    // private static final LoggedTunableNumber kHopperV = new LoggedTunableNumber("Hopper/kV");
-    // private static final LoggedTunableNumber kHopperA = new LoggedTunableNumber("Hopper/kA");
-    
-    //height is in inches
+    // private static final LoggedTunableNumber kHopperS = new
+    // LoggedTunableNumber("Hopper/kS");
+    // private static final LoggedTunableNumber kHopperG = new
+    // LoggedTunableNumber("Hopper/kG");
+    // private static final LoggedTunableNumber kHopperV = new
+    // LoggedTunableNumber("Hopper/kV");
+    // private static final LoggedTunableNumber kHopperA = new
+    // LoggedTunableNumber("Hopper/kA");
+
+    // height is in inches
     private double m_currentHeight;
     private double m_targetHeight;
+    private boolean isTuning;
 
     public Hopper() {
-        
+
         m_mainVortex = new SparkFlex(Constants.MechConstants.kHoppLenID, MotorType.kBrushless);
         m_hoppEncoder = m_mainVortex.getAbsoluteEncoder();
         m_hoopClosedLoop = m_mainVortex.getClosedLoopController();
-        m_mainVortex.configure(Configs.HopperConfigs.hopperConfig, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+        m_mainVortex.configure(Configs.HopperConfigs.hopperConfig, ResetMode.kResetSafeParameters,
+                PersistMode.kPersistParameters);
         kHopperP.initDefault(HopperConstants.kPHopperExt);
         kHopperD.initDefault(HopperConstants.kDHopperExt);
         // kHopperS.initDefault(HopperConstants.kSHoppExt);
         // kHopperG.initDefault(HopperConstants.kGHoppExt);
         // kHopperV.initDefault(HopperConstants.kVHoppExt);
         // kHopperA.initDefault(HopperConstants.kAHoppExt);
-        
-        
+
     }
-    
 
     @Override
     public void periodic() {
+        handleTuning();
+
         Logger.recordOutput("Hopper/targetHeight", m_targetHeight);
         Logger.recordOutput("Hopper/currentHeight", m_currentHeight);
-        if (SmartDashboard.getBoolean("TuningModeActive", false)) {
-            if (kHopperP.hasChanged(hashCode()) || kHopperD.hasChanged(hashCode()))  {
-                SparkFlexConfig updateConfig = new SparkFlexConfig();
-                updateConfig.closedLoop.pid(kHopperP.get(), 0.0, kHopperD.get());
-                m_mainVortex.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-            }
-        }
-        
 
         m_hoopClosedLoop.setSetpoint(m_targetHeight, ControlType.kMAXMotionPositionControl);
         m_currentHeight = m_hoppEncoder.getPosition() * HopperConstants.kHopperExtConversionFactor;
@@ -84,6 +78,24 @@ public class Hopper extends SubsystemBase {
 
     public void retract() {
         m_targetHeight = 0.0;
+    }
+
+    public void handleTuning() {
+        boolean isTuningActive = SmartDashboard.getBoolean("TuningModeActive", false);
+        if (isTuning != isTuningActive) {
+            isTuning = isTuningActive;
+        }
+        if (!isTuning) {
+            return;
+        }
+        
+            if (kHopperP.hasChanged(hashCode()) || kHopperD.hasChanged(hashCode())) {
+                SparkFlexConfig updateConfig = new SparkFlexConfig();
+                updateConfig.closedLoop.pid(kHopperP.get(), 0.0, kHopperD.get());
+                m_mainVortex.configure(updateConfig, ResetMode.kNoResetSafeParameters,
+                        PersistMode.kNoPersistParameters);
+            }
+        
     }
 
     // returns if its fully extended

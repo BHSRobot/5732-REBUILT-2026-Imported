@@ -6,8 +6,11 @@ import frc.robot.utils.LoggedTunableNumber;
 import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.inputs.LoggableInputs;
 
+import com.revrobotics.PersistMode;
+import com.revrobotics.ResetMode;
+import com.revrobotics.spark.config.SparkFlexConfig;
 
-
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 
 import frc.robot.utils.Configs;
@@ -19,99 +22,104 @@ public class Intake extends SubsystemBase {
     public enum IntakeExtensionState { EXTENDING, RETRACTING, DISABLED }
     private IntakeState intakeState = IntakeState.DISABLED;
     private IntakeExtensionState extensionState = IntakeExtensionState.DISABLED;
-    public static final LoggedTunableNumber PIntakeExtension = new LoggedTunableNumber("IntakeExtension/kP");
-    public static final LoggedTunableNumber DIntakeExtension = new LoggedTunableNumber("IntakeExtension/kD");
-    
-    public Intake(IntakeIO io) {
-        this.io = io;
-    }
-
-    @Override
-    public void periodic() {
+        private boolean isTuning;
+        public static final LoggedTunableNumber PIntakeExtension = new LoggedTunableNumber("IntakeExtension/kP");
+        public static final LoggedTunableNumber DIntakeExtension = new LoggedTunableNumber("IntakeExtension/kD");
         
-
-        io.updateInputs(inputs); 
-        //Logger.processInputs("Intake", (LoggableInputs) inputs); // If using AdvantageKit
-
-        switch (intakeState) {
-            case DISABLED -> {
-                io.setIntakeVoltage(0.0);
-                //io.setExtended(false);
-                
-            }
-
-            case EJECTING -> {
-                io.setIntakeVoltage(-9);
-                
-                //io.setExtended(true);
-                
-            }
-            case INTAKING -> {
-                
-                io.setIntakeVoltage(9);
-                
-                //io.setExtended(true);
-                
-            }
-
-
+        public Intake(IntakeIO io) {
+            this.io = io;
         }
-
-        switch (extensionState) {
-            case DISABLED -> {
-                io.testSetDisabled();
-                
-                
+    
+        @Override
+        public void periodic() {
+            
+    
+            io.updateInputs(inputs); 
+            //Logger.processInputs("Intake", (LoggableInputs) inputs); // If using AdvantageKit
+    
+            switch (intakeState) {
+                case DISABLED -> {
+                    io.setIntakeVoltage(0.0);
+                    //io.setExtended(false);
+                    
+                }
+    
+                case EJECTING -> {
+                    io.setIntakeVoltage(-9);
+                    
+                    //io.setExtended(true);
+                    
+                }
+                case INTAKING -> {
+                    
+                    io.setIntakeVoltage(9);
+                    
+                    //io.setExtended(true);
+                    
+                }
+    
+    
             }
-            case EXTENDING -> {
-                io.testExtend();
-                
-                
-            }
-            case RETRACTING -> {
-                io.testRetract();
-                
-                
+    
+            switch (extensionState) {
+                case DISABLED -> {
+                    io.testSetDisabled();
+                    
+                    
+                }
+                case EXTENDING -> {
+                    io.testExtend();
+                    
+                    
+                }
+                case RETRACTING -> {
+                    io.testRetract();
+                    
+                    
+                }
             }
         }
-    }
-
-    public void setIntakeState(IntakeState state) {
-        intakeState = state;
-    }
-
-    public void setExtensionState(IntakeExtensionState state) {
-        extensionState = state;
-    }
+    
+        public void setIntakeState(IntakeState state) {
+            intakeState = state;
+        }
+    
+        public void setExtensionState(IntakeExtensionState state) {
+            extensionState = state;
+        }
+        
+        
+        public Command intakeCommand() {
+            return this.runEnd(() -> setIntakeState(IntakeState.INTAKING), 
+                               () -> setIntakeState(IntakeState.DISABLED));
+        }
+    
+        public Command ejectCommand() {
+            return this.runEnd(() -> setIntakeState(IntakeState.EJECTING), 
+                               () -> setIntakeState(IntakeState.DISABLED));
+        }
     
     
-    public Command intakeCommand() {
-        return this.runEnd(() -> setIntakeState(IntakeState.INTAKING), 
-                           () -> setIntakeState(IntakeState.DISABLED));
-    }
-
-    public Command ejectCommand() {
-        return this.runEnd(() -> setIntakeState(IntakeState.EJECTING), 
-                           () -> setIntakeState(IntakeState.DISABLED));
-    }
-
-
-
-
-    // test methods for now because pids are not tuned
-    public Command testExtend() {
-        return this.runEnd(() -> setExtensionState(IntakeExtensionState.EXTENDING), 
-                           () -> setExtensionState(IntakeExtensionState.DISABLED));
-    }
-
-    public Command testRetract() {
-        return this.runEnd(() ->  setExtensionState(IntakeExtensionState.RETRACTING),
-                           () -> setExtensionState(IntakeExtensionState.DISABLED)
-        );
-
+    
+    
+        // test methods for now because pids are not tuned
+        public Command testExtend() {
+            return this.runEnd(() -> setExtensionState(IntakeExtensionState.EXTENDING), 
+                               () -> setExtensionState(IntakeExtensionState.DISABLED));
+        }
+    
+        public Command testRetract() {
+            return this.runEnd(() ->  setExtensionState(IntakeExtensionState.RETRACTING),
+                               () -> setExtensionState(IntakeExtensionState.DISABLED)
+            );
+    
+        }
+        
+       
+        
     }
 
     
 
     
-}
+

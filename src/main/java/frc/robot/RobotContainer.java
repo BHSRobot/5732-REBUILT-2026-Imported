@@ -78,7 +78,7 @@ public class RobotContainer {
   private final Indexer m_indexer;
   private final TurretShooter m_shooter;
 
- //private final SysIDRoutines m_routines;
+  // private final SysIDRoutines m_routines;
 
   // Controllers
   public static final CommandXboxController m_driverController = new CommandXboxController(
@@ -107,11 +107,12 @@ public class RobotContainer {
     }
     // change when robot is built
     m_turretAzimuth = null;
-   // m_driveBase.setTurretAngleSupplier(() -> Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
+    // m_driveBase.setTurretAngleSupplier(() ->
+    // Rotation2d.fromDegrees(m_turretAzimuth.getCurrentAngle()));
     m_indexer = new Indexer();
     // change when robot is built
     m_shooter = new TurretShooter();
-    //m_routines = new SysIDRoutines(m_driveBase);
+    // m_routines = new SysIDRoutines(m_driveBase);
 
     auto = new Autos();
 
@@ -135,8 +136,8 @@ public class RobotContainer {
     configureNamedCommands();
     SmartDashboard.putBoolean("TuningModeActive", false);
 
-   // m_turretAzimuth.setDefaultCommand(
-   //     new TurretVisionAim(m_driveBase, m_turretAzimuth, m_shooter, m_indexer));
+    // m_turretAzimuth.setDefaultCommand(
+    // new TurretVisionAim(m_driveBase, m_turretAzimuth, m_shooter, m_indexer));
     autoChooser.addOption("RushLeft", getAutonomousCommand());
     autoChooser.addDefaultOption("CornerAndShoot", getAutonomousCommand());
     autoChooser.addOption("TestPath", getAutonomousCommand());
@@ -146,14 +147,14 @@ public class RobotContainer {
   private void configureBindings() {
 
     // ==== DRIVER BINDS ====
-    
+
     // a is heading reset
     // left triger is intake
     // left bumper is intake reverse
     // right trigger is index/shoot
     // right bumper is index reverse
     // y is intake extend
-    // b is intake retract 
+    // b is intake retract
 
     // creates a trigger for quick field/robot relative control switching
     new Trigger(m_driverController.povUp()).onTrue(
@@ -167,33 +168,22 @@ public class RobotContainer {
     // m_driveBase).withName("Defense Position"));
 
     m_driverController.leftTrigger().whileTrue(
-    m_intake.intakeCommand()
-    );
-    m_driverController.leftBumper().whileTrue(
-    m_intake.ejectCommand()
-    );
+        m_intake.intakeCommand());
 
+    m_driverController.leftBumper().whileTrue(
+        m_intake.ejectCommand());
 
     m_driverController.rightTrigger().whileTrue(
-        Commands.parallel(
-            // Branch 1: Start the shooter and keep it running for the duration of the button press
-            new RunCommand(() -> m_shooter.justShootBruh(), m_shooter)
-                .finallyDo(() -> m_shooter.stop()),
-                
-            // Branch 2: Wait 0.5 seconds, then start the indexer
-            Commands.sequence(
-                new WaitCommand(0.5),
-                m_indexer.runIndexer()
-            )
-        )
-    );
+        new SequentialCommandGroup(
+            m_shooter.simpleShootCommand(),
 
+            new WaitCommand(0.5),
+            m_indexer.runIndexer()));
 
-
-    //m_driverController.rightTrigger().whileTrue(
-    //  m_indexer.runIndexer());
+    // m_driverController.rightTrigger().whileTrue(
+    // m_indexer.runIndexer());
     m_driverController.rightBumper().whileTrue(
-      m_indexer.runIndexerReverse());
+        m_indexer.runIndexerReverse());
     // m_driverController.leftBumper().whileTrue(
     // m_intake.intakeCommand());
     // m_driverController.leftTrigger().whileTrue(
@@ -211,9 +201,9 @@ public class RobotContainer {
     // () -> getAllianceBasedTranslation().getY()));
 
     m_driverController.y().whileTrue(
-    m_intake.testExtend());
+        m_intake.testExtend());
     m_driverController.b().whileTrue(
-    m_intake.testRetract());
+        m_intake.testRetract());
 
     // ==== OPERATOR BINDS ====
     //
@@ -268,8 +258,10 @@ public class RobotContainer {
 
   public void configureNamedCommands() {
 
-   /// NamedCommands.registerCommand("aimChassisAndShoot", new ChassisVisionAim(m_driveBase, m_shooter, m_indexer,
-      //  () -> getAllianceBasedTranslation().getX(), () -> getAllianceBasedTranslation().getY()));
+    /// NamedCommands.registerCommand("aimChassisAndShoot", new
+    /// ChassisVisionAim(m_driveBase, m_shooter, m_indexer,
+    // () -> getAllianceBasedTranslation().getX(), () ->
+    /// getAllianceBasedTranslation().getY()));
 
     // NamedCommands.registerCommand("aimTurretAndShoot",
     // new TurretVisionAim(m_driveBase, m_turretAzimuth, m_shooter, m_indexer));
@@ -315,8 +307,8 @@ public class RobotContainer {
   // return Commands.print("No autonomous command configured");
 
   public void setupDriverTab() {
-    CameraServer.addServer("http://limelight-chassis.local:5800");
-    CameraServer.addServer("http://limelight-turret.local:5800");
+    CameraServer.addServer("http://limelight-rightCam.local:5800");
+    CameraServer.addServer("http://limelight-leftCam.local:5800");
     CameraServer.startAutomaticCapture();
   }
 

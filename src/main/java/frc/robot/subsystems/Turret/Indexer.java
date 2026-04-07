@@ -22,6 +22,7 @@ import frc.robot.utils.LoggedTunableNumber;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkFlexConfig;
+import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkClosedLoopController;
 
 public class Indexer extends SubsystemBase {
@@ -35,11 +36,13 @@ public class Indexer extends SubsystemBase {
     private double m_targetRotorRPM;
     private double m_currentRollersRPM;
     private double m_targetRollersRPM;
+    private double m_lastLogTime;
     public static final LoggedTunableNumber PRotor = new LoggedTunableNumber("Rotor/kP");
     public static final LoggedTunableNumber DRotor = new LoggedTunableNumber("Rotor/kD");
 
     public static final LoggedTunableNumber PRollers = new LoggedTunableNumber("Rollers/kP");
     public static final LoggedTunableNumber DRollers = new LoggedTunableNumber("Rollers/kD");
+    IndexerState indexState = IndexerState.DISABLED;
 
     public Indexer() {
 
@@ -61,6 +64,44 @@ public class Indexer extends SubsystemBase {
 
     }
 
+    @Override
+    public void periodic() {
+
+        double currentTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+
+        if (currentTime - m_lastLogTime >= 0.1) { // Log every 100ms
+            Logger.recordOutput("Rollers/targetVelocity", m_targetRollersRPM);
+            Logger.recordOutput("Rollers/currentVelocity", m_currentRollersRPM);
+            Logger.recordOutput("Rotor/targetVelocity", m_targetRotorRPM);
+            Logger.recordOutput("Rotor/currentVelocity", m_currentRotorRPM);
+            m_lastLogTime = currentTime;
+        }
+
+        m_currentRotorRPM = m_rotorEncoder.getVelocity();
+        m_currentRollersRPM = m_rollersEncoder.getVelocity();
+        
+
+        
+        switch (indexState) {
+            case DISABLED -> {
+                stop();
+            }
+            case WARMUP -> {
+                setRollersRawSpeed(1);
+                setIndexRawSpeed(0);
+            }
+            case RUNNING -> {
+                setRollersRawSpeed(1);
+                setIndexRawSpeed(.35);
+            }
+            case REVERSE -> {
+                setRollersRawSpeed(-.5);
+                setIndexRawSpeed(-.2);
+            }
+
+        }
+    }
+
     public void setRotorRPM(double rpm) {
         m_rotorClosedLoop.setSetpoint(rpm, ControlType.kMAXMotionVelocityControl);
         m_targetRotorRPM = rpm;
@@ -74,7 +115,49 @@ public class Indexer extends SubsystemBase {
         RUNNING, WARMUP, DISABLED, REVERSE
     }
 
-    IndexerState indexState = IndexerState.DISABLED;
+    
+    private boolean m_isTuning;
+
+    public void handleTuning() {
+        boolean isTuningActive = SmartDashboard.getBoolean("TuningModeActive", false);
+        if (m_isTuning != isTuningActive) {
+            m_isTuning = isTuningActive;
+        }
+        if (!m_isTuning) {
+            return;
+        }
+
+        if (PRotor.hasChanged(hashCode()) || DRotor.hasChanged(hashCode())) {
+            SparkFlexConfig updateConfig = new SparkFlexConfig();
+            updateConfig.closedLoop.pid(PRotor.get(), 0.0, DRotor.get());
+            m_rotorVortex.configure(updateConfig, ResetMode.kNoResetSafeParameters,
+                    PersistMode.kNoPersistParameters);
+        }
+        if (PRollers.hasChanged(hashCode()) || DRollers.hasChanged(hashCode())) {
+            SparkFlexConfig updateConfig = new SparkFlexConfig();
+            updateConfig.closedLoop.pid(PRollers.get(), 0.0, DRollers.get());
+            m_rollersMotor.configure(updateConfig, ResetMode.kNoResetSafeParameters,
+                    PersistMode.kNoPersistParameters);
+        }
+
+    }
+
+    public Command runIndexer() {
+        return new SequentialCommandGroup(
+                runOnce(() -> setIndexerState(IndexerState.WARMUP)),
+                new WaitCommand(0.5),
+
+                run(() -> setIndexerState(IndexerState.RUNNING)))
+                .finallyDo(() -> setIndexerState(IndexerState.DISABLED))
+                .withName("RunIndexerSequence");
+    }
+
+    public Command runIndexerReverse() {
+        return new SequentialCommandGroup(
+                run(() -> setIndexerState(IndexerState.REVERSE)))
+                .finallyDo(() -> setIndexerState(IndexerState.DISABLED))
+                .withName("RunIndexerReverseSequence");
+    }
 
     public void setIndexerState(IndexerState state) {
         indexState = state;
@@ -88,24 +171,6 @@ public class Indexer extends SubsystemBase {
     public void setRollersRawSpeed(double speed) {
         m_rollersMotor.set(speed);
     }
-
-    public Command   runIndexer() {
-        return new SequentialCommandGroup(
-                runOnce(() -> setIndexerState(IndexerState.WARMUP)),
-                new WaitCommand(0.5), 
-
-                run(() -> setIndexerState(IndexerState.RUNNING)))
-                .finallyDo(() -> setIndexerState(IndexerState.DISABLED))
-                .withName("RunIndexerSequence");
-    }
-
-    public Command   runIndexerReverse() {
-        return new SequentialCommandGroup(
-                run(() -> setIndexerState(IndexerState.REVERSE)))
-                .finallyDo(() -> setIndexerState(IndexerState.DISABLED))
-                .withName("RunIndexerReverseSequence");
-    }
-
 
     public double getTargetRotorRPM() {
         return m_targetRotorRPM;
@@ -126,52 +191,6 @@ public class Indexer extends SubsystemBase {
     public void stop() {
         m_rotorVortex.setVoltage(0.0);
         m_rollersMotor.setVoltage(0.0);
-    }
-
-    @Override
-    public void periodic() {
-        Logger.recordOutput("Rollers/targetVelocity", m_targetRollersRPM);
-        Logger.recordOutput("Rollers/currentVelocity", m_currentRollersRPM);
-        Logger.recordOutput("Rotor/targetVelocity", m_targetRotorRPM);
-        Logger.recordOutput("Rotor/currentVelocity", m_currentRotorRPM);
-        m_currentRotorRPM = m_rotorEncoder.getVelocity();
-        m_currentRollersRPM = m_rollersEncoder.getVelocity();
-         if (SmartDashboard.getBoolean("TuningModeActive", false)) {
-            if (PRotor.hasChanged(hashCode()) || DRotor.hasChanged(hashCode()))  {
-                SparkFlexConfig updateConfig = new SparkFlexConfig();
-                updateConfig.closedLoop.pid(PRotor.get(), 0.0, DRotor.get());
-                m_rotorVortex.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-            }
-            if (PRollers.hasChanged(hashCode()) || DRollers.hasChanged(hashCode()))  {
-                SparkFlexConfig updateConfig = new SparkFlexConfig();
-                updateConfig.closedLoop.pid(PRollers.get(), 0.0, DRollers.get());
-                m_rollersMotor.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-            }
-
-        }
-
-        
-            
-        
-
-        switch (indexState) {
-            case DISABLED -> {
-                stop();
-            }
-            case WARMUP -> {
-                setRollersRawSpeed(1);
-                setIndexRawSpeed(0);
-            }
-            case RUNNING -> {
-                setRollersRawSpeed(1);
-                setIndexRawSpeed(.35);
-            }
-            case REVERSE -> {
-                setRollersRawSpeed(-.5);
-                setIndexRawSpeed(-.2);
-            }
-
-        }
     }
 
 }

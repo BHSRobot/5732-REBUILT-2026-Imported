@@ -116,7 +116,7 @@ public void execute() {
     m_driveSubsystem.drive(translation, omega, true);
 
     //m_turretShooter.prepareToShoot(virtualDistance);
-    m_turretShooter.justShootBruh();
+    m_turretShooter.simpleShootCommand();
     
     boolean isChassisAtAngle = Math.abs(currentPose.getRotation().minus(fieldRelativeAngleToTarget).getRadians()) < Math.toRadians(2.0);
     boolean isShooterReady = m_turretShooter.isAtTargetRPM();

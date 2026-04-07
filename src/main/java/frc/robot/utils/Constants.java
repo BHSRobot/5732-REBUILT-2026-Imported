@@ -75,50 +75,39 @@ public final class Constants {
 
   }
   public static final class Vision {
-    public static final String kturretlime = "limelight-turret";
-    public static final String kchassislime = "limelight-chassis";
+    public static final String kleftCam = "limelight-leftCam";
+    public static final String krightCam = "limelight-rightCam";
     public static final double kPVision = 0.0;
     public static final double kDVision = 0.0;
 
     // -- ADJUST ALL OF THIS ONCE BOT IS BUILT --
     // == all of this is in meters or degrees ==
 
-    // -- limelight constants for the turret --
 
-    // turret location relative to the center of robot
-    public static final double TURRET_CENTER_FORWARD_OFFSET = 0.0; // forward of robot center
-    public static final double TURRET_CENTER_SIDE_OFFSET = 0.0; // left/right of robot center
 
-    //camera location relative to the center of the turret
-    public static final double CAMERA_RADIUS_FROM_TURRET = 0.20; // distance from center of turret
-    public static final double TURRET_CAMERA_Z_HEIGHT = 0.55; // Height of camera lens from the floor
-    
-    public static final double TURRET_CAMERA_PITCH = 20.0; // Static angle the camera tilts up/down
-    public static final double TURRET_CAMERA_ROLL = 0.0;
-    public static final double TURRET_CAMERA_YAW = -90; // angle camera is facing relative to front
     
 
-    // second chassis camera location 
+    //  chassis camera location 
     
     // relative to the center of robot
-    public static final double CHASSISTWO_CENTER_FORWARD_OFFSET = -0.222; // forward of robot center
-    public static final double CHASSISTWO_CENTER_SIDE_OFFSET = -0.325; // left/right of robot center
+    public static final double rightCam_CENTER_FORWARD_OFFSET = -0.222; // forward of robot center
+    public static final double rightCam_CENTER_SIDE_OFFSET = -0.325; // left/right of robot center
 
     // relative to the center of the robot
-    public static final double STATIC_Z_HEIGHT = 0.242; // Height of camera lens from the floor
+    public static final double rightCam_Z_HEIGHT = 0.242; // Height of camera lens from the floor
     
-    public static final double STATIC_CAMERA_ROLL = 0.0; // Static angle the camera tilts up/down
-    public static final double STATIC_CAMERA_PITCH = 50.0;
-    public static final double STATIC_CAMERA_YAW = 125; // angle camera is facing relative to front
+    public static final double rightCam_CAMERA_ROLL = 0.0; // Static angle the camera tilts up/down
+    public static final double rightCam_CAMERA_PITCH = 50.0;
+    public static final double rightCam_CAMERA_YAW = 125; // angle camera is facing relative to front
 
-    // chassis camera location relative to robots center
+    // second chassis camera location relative to robots center
 
-    public static final double CHASSIS_CAMERA_FORWARD_OFFSET = -0.222; // distance from center of robot
-    public static final double CHASSIS_CAMERA_SIDE_OFFSET = -0.325; // distance from center of robot 
-    public static final double CHASSIS_CAMERA_Z_HEIGHT = 0.242; // Height of camera lens from the floor
-    public static final double CHASSIS_CAMERA_ROLL = 0; // angle camera is facing relative to front
-    public static final double CHASSIS_CAMERA_PITCH = 50.0; // Static angle the camera tilts up/down
-    public static final double CHASSIS_CAMERA_YAW = -125;
+    public static final double leftCam_CAMERA_FORWARD_OFFSET = -0.222; // distance from center of robot
+    public static final double leftCam_CAMERA_SIDE_OFFSET = -0.325; // distance from center of robot 
+    public static final double leftCam_CAMERA_Z_HEIGHT = 0.242; // Height of camera lens from the floor
+    public static final double leftCam_CAMERA_ROLL = 0; // angle camera is facing relative to front
+    public static final double leftCam_CAMERA_PITCH = 50.0; // Static angle the camera tilts up/down
+    public static final double leftCam_CAMERA_YAW = -125;
     
   }
 

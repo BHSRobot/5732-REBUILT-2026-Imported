@@ -1,4 +1,5 @@
 package frc.robot.subsystems.Turret;
+
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import com.revrobotics.spark.SparkFlex;
@@ -27,32 +28,37 @@ public class TurretAzimuth extends SubsystemBase {
     private final AbsoluteEncoder m_turretAzimuthEncoder;
     private double m_currentAngle;
     private double m_targetAngle;
+    private double m_lastLogTime;
+
+    private boolean m_isTuning;
     public static final LoggedTunableNumber PTurretAngle = new LoggedTunableNumber("TurretAzimuth/kP");
     public static final LoggedTunableNumber DTurretAngle = new LoggedTunableNumber("TurretAzimuth/kD");
+
     public TurretAzimuth() {
         m_mainVortex = new SparkMax(MechConstants.kTurrAzimuthID, MotorType.kBrushless);
-        m_mainVortex.configure(Configs.TurretConfigs.azimuthConfig, ResetMode.kNoResetSafeParameters, PersistMode.kPersistParameters);
+        m_mainVortex.configure(Configs.TurretConfigs.azimuthConfig, ResetMode.kNoResetSafeParameters,
+                PersistMode.kPersistParameters);
         m_turretAzimuthEncoder = m_mainVortex.getAbsoluteEncoder();
         m_turretClosedLoop = m_mainVortex.getClosedLoopController();
-        Configs.TurretConfigs.azimuthConfig.closedLoop.pid(TurretConstants.kPTurretAngle, 0.0, TurretConstants.kDTurretAngle);
+        Configs.TurretConfigs.azimuthConfig.closedLoop.pid(TurretConstants.kPTurretAngle, 0.0,
+                TurretConstants.kDTurretAngle);
         PTurretAngle.initDefault(TurretConstants.kPTurretAngle);
         DTurretAngle.initDefault(TurretConstants.kDTurretAngle);
     }
 
-
     @Override
     public void periodic() {
-        Logger.recordOutput("Turret/CurrentAngle", m_currentAngle);
-        Logger.recordOutput("Turret/targetAngle", m_targetAngle);
-       
-        if (SmartDashboard.getBoolean("TuningModeActive", false)) {
-            if (PTurretAngle.hasChanged(hashCode()) || DTurretAngle.hasChanged(hashCode()))  {
-                SparkMaxConfig updateConfig = new SparkMaxConfig();
-                updateConfig.closedLoop.pid(PTurretAngle.get(), 0.0, DTurretAngle.get());
-                m_mainVortex.configure(updateConfig, ResetMode.kNoResetSafeParameters, PersistMode.kNoPersistParameters);
-            }
+        double currentTime = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+
+        if (currentTime - m_lastLogTime >= 0.1) { // Log every 100ms
+            Logger.recordOutput("Turret/CurrentAngle", m_currentAngle);
+            Logger.recordOutput("Turret/targetAngle", m_targetAngle);
+            m_lastLogTime = currentTime;
         }
+
         m_currentAngle = m_turretAzimuthEncoder.getPosition();
+        
+        handleTuning();
     }
 
     public double getCurrentAngle() {
@@ -64,16 +70,31 @@ public class TurretAzimuth extends SubsystemBase {
         m_turretClosedLoop.setSetpoint(angle, ControlType.kMAXMotionPositionControl);
     }
 
+    public void handleTuning() {
+        boolean isTuningActive = SmartDashboard.getBoolean("TuningModeActive", false);
+        if (m_isTuning != isTuningActive) {
+            m_isTuning = isTuningActive;
+        }
+        if (!m_isTuning) {
+            return;
+        }
+
+        if (PTurretAngle.hasChanged(hashCode()) || DTurretAngle.hasChanged(hashCode())) {
+            SparkMaxConfig updateConfig = new SparkMaxConfig();
+            updateConfig.closedLoop.pid(PTurretAngle.get(), 0.0, DTurretAngle.get());
+            m_mainVortex.configure(updateConfig, ResetMode.kNoResetSafeParameters,
+                    PersistMode.kNoPersistParameters);
+        }
+
+    }
 
     public boolean isAtTargetAngle() {
         return m_turretClosedLoop.isAtSetpoint();
     }
 
-
     public void stop() {
         m_mainVortex.stopMotor();
-        
+
     }
 
-    
 }

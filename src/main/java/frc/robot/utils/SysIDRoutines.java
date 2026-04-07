@@ -297,13 +297,13 @@ public class SysIDRoutines {
 
     for (int i = 0; i < modules.length; i++) {
       
-      SwerveModuleState optimized = SwerveModuleState.optimize(states[i], modules[i].getState().angle);
+      states[i].optimize(modules[i].getState().angle);
 
       
-      modules[i].setAngle(optimized.angle.getDegrees());
+      modules[i].setAngle(states[i].angle.getDegrees());
 
       
-      double appliedVolts = volts * Math.signum(optimized.speedMetersPerSecond);
+      double appliedVolts = volts * Math.signum(states[i].speedMetersPerSecond);
       ((TalonFX) modules[i].getDriveMotor().getMotor()).setVoltage(appliedVolts);
     }
   }
